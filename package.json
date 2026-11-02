@@ -6,16 +6,27 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "node scripts/seed.mjs",
+    "stand:create": "node scripts/stand.mjs create",
+    "stand:list": "node scripts/stand.mjs list",
+    "stand:rotate": "node scripts/stand.mjs rotate",
+    "stand:disable": "node scripts/stand.mjs disable",
+    "stand:enable": "node scripts/stand.mjs enable",
+    "test:api": "node scripts/test-api.mjs"
   },
   "dependencies": {
+    "lucide-react": "^1.66.0",
     "next": "16.4.3",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
@@ -23,5 +34,8 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "packageManager": "pnpm@12.16.1"
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=22.13"
+  }
 }
