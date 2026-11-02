@@ -4,6 +4,7 @@ A mobile-only student productivity web app by **ATHENTIV**. It combines academic
 
 | Docs | |
 |---|---|
+| [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md) | **Go live:** git push → Turso → Vercel → create a stand → sign in on a phone |
 | [docs/ACCESS-RULES.md](docs/ACCESS-RULES.md) | Account types, NFC/session rules, feature matrix, **assumptions made** |
 | [docs/SUBSCRIPTION.md](docs/SUBSCRIPTION.md) | Proposed PHP pricing, billing architecture, sandbox mode |
 | [docs/TESTING.md](docs/TESTING.md) | Automated suite (18 scenarios, 153 checks) + manual phone checklist |
@@ -12,8 +13,8 @@ A mobile-only student productivity web app by **ATHENTIV**. It combines academic
 ## Stack
 
 - **Next.js 16** (App Router, route handlers, `proxy.ts`), React 19, TypeScript, Tailwind CSS v4
-- **SQLite** through Node's built-in `node:sqlite`: real relational schema, foreign keys, constraints and indexes, with no native modules to compile
-- `zod` for validation shared by client and server, and `lucide-react` for icons. Nothing else: password hashing (scrypt), charts, the PDF writer and the ambient-sound engine are all built in.
+- **libSQL / SQLite** via `@libsql/client`: a hosted **Turso** database in production, a local SQLite file in development. Real relational schema with foreign keys, constraints, indexes and versioned migrations
+- `zod` for validation shared by client and server, `lucide-react` for icons, `@libsql/client` for the database. Nothing else: password hashing (scrypt), charts, the PDF writer and the ambient-sound engine are all built in.
 
 ```
 db/migrations/      versioned SQL migrations (applied automatically at startup and by pnpm db:migrate)
@@ -79,19 +80,19 @@ The latest run gave **153 passed, 0 failed**. See [docs/TESTING.md](docs/TESTING
 
 ## Deployment
 
-The app is a single Node server with a SQLite file, so it needs **one long-running instance with a persistent disk**:
+**Vercel + Turso** (free tiers). Follow the step-by-step guide in [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md), from `git push` to signing in on a phone.
 
-- **Works as-is:** a VPS, Railway or Render with a persistent volume, Fly.io with a volume, or any Docker host. Point `DATABASE_PATH` at the volume and run `pnpm build && pnpm start` behind HTTPS.
-- **Not as-is:** serverless platforms such as Vercel or Netlify Functions, because their file systems are ephemeral and the SQLite data would be lost. To deploy there, port `src/server/db.ts` to Postgres (the SQL is standard apart from `INSERT OR IGNORE`/`ON CONFLICT` syntax and partial indexes, which Postgres also supports).
-- HTTPS is required in production for Secure cookies, Web NFC, the Wake Lock API, notifications and the microphone.
-- The IP rate limiter is in memory (per instance). For more than one instance, move it to Redis. Per-username login lockout is already stored in the database.
-- Back up the database with `sqlite3 focusdock.db ".backup backup.db"` (WAL-safe).
+- Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel. Without them the app refuses to start on Vercel and shows a clear error.
+- `vercel.json` pins the server functions to Tokyo (`hnd1`). Create the Turso database in Tokyo as well, so each query is a short hop.
+- Stands and owner accounts are created from your PC (`pnpm stand:create`) with the same Turso variables in `.env.local`.
+- Any long-running Node host (VPS, Render, Railway) also works: `pnpm build && pnpm start`, with either Turso or a local `DATABASE_PATH` on a persistent disk.
+- The IP rate limiter is in memory, so on Vercel each server instance counts separately. Per-username login lockout is stored in the database and applies everywhere.
 
 ## Status of external integrations
 
 | Integration | Status |
 |---|---|
-| Database | **Working.** SQLite with migrations, tested |
+| Database | **Working locally** (153/153 end-to-end checks on a libSQL file database). Live Turso connection uses the same client but was **not tested here** (needs your Turso account) |
 | NFC | **Working** via tag URL (tested through the API). Web NFC in-app scan written for Android Chrome but **not tested on a physical phone** |
 | Payments | **Sandbox only**, clearly labelled. No gateway (for example PayMongo) is connected, and no real money can move |
 | Spotify | **Link + official embed player.** No OAuth/Web Playback SDK, because Spotify restricts in-browser playback (see RECOMMENDATIONS) |

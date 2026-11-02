@@ -14,13 +14,13 @@ export const POST = route(async (req) => {
   const ip = clientIp(req);
   rateLimit(`nfc:${ip}`, 30, 10 * 60_000);
   const input = await readJson(req, nfcVerifySchema);
-  const { stand, owner } = resolveStand(input.code, input.key, ip);
+  const { stand, owner } = await resolveStand(input.code, input.key, ip);
   const auth = await getAuth();
   if (!auth) {
-    recordLoginRequired(stand.id, ip);
+    await recordLoginRequired(stand.id, ip);
     return ok({ status: "login_required", standCode: stand.stand_code, username: owner.username });
   }
-  const result = verifySession(auth, stand.id, owner.id, ip);
-  const premium = premiumOf(auth.user.id);
+  const result = await verifySession(auth, stand.id, owner.id, ip);
+  const premium = await premiumOf(auth.user.id);
   return ok({ status: "verified", standCode: stand.stand_code, ...result, premiumUntil: premium.until });
 });

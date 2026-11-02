@@ -34,27 +34,27 @@ export async function createAccount(input: {
   const tz = input.timezone && isValidTimeZone(input.timezone) ? input.timezone : "Asia/Manila";
   const now = Date.now();
   try {
-    const userId = tx(() => {
-      const id = run(
+    const userId = await tx(async () => {
+      const { id } = await run(
         `INSERT INTO users (username, password_hash, account_type, recovery_code_hash, must_change_password, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         input.username, passwordHash, input.accountType, hashRecoveryCode(code), !!input.mustChangePassword, now, now,
-      ).id;
-      run("INSERT INTO user_profiles (user_id, display_name, timezone, updated_at) VALUES (?, ?, ?, ?)", id, input.displayName, tz, now);
-      run("INSERT INTO user_preferences (user_id, updated_at) VALUES (?, ?)", id, now);
-      run("INSERT INTO pomodoro_configurations (user_id, updated_at) VALUES (?, ?)", id, now);
-      run("INSERT INTO study_audio_preferences (user_id, updated_at) VALUES (?, ?)", id, now);
+      );
+      await run("INSERT INTO user_profiles (user_id, display_name, timezone, updated_at) VALUES (?, ?, ?, ?)", id, input.displayName, tz, now);
+      await run("INSERT INTO user_preferences (user_id, updated_at) VALUES (?, ?)", id, now);
+      await run("INSERT INTO pomodoro_configurations (user_id, updated_at) VALUES (?, ?)", id, now);
+      await run("INSERT INTO study_audio_preferences (user_id, updated_at) VALUES (?, ?)", id, now);
       return id;
     });
-    return { user: one<UserRow>("SELECT * FROM users WHERE id = ?", userId)!, recoveryCode: code };
+    return { user: (await one<UserRow>("SELECT * FROM users WHERE id = ?", userId))!, recoveryCode: code };
   } catch (e) {
     if (isUniqueViolation(e)) throw err.conflict("USERNAME_TAKEN", "That username is already taken.");
     throw e;
   }
 }
 
-export function profileOf(userId: number): ProfileRow {
-  return one<ProfileRow>("SELECT * FROM user_profiles WHERE user_id = ?", userId)!;
+export async function profileOf(userId: number): Promise<ProfileRow> {
+  return (await one<ProfileRow>("SELECT * FROM user_profiles WHERE user_id = ?", userId))!;
 }
 
 export function profileCompletion(p: ProfileRow, subjectCount: number) {
@@ -69,18 +69,18 @@ export function profileCompletion(p: ProfileRow, subjectCount: number) {
   return { percent: Math.round((checks.filter((c) => c.done).length / checks.length) * 100), checks };
 }
 
-export function mePayload(auth: Auth) {
-  const p = profileOf(auth.user.id);
-  const access = accessFor(auth);
-  const subjectCount = one<{ n: number }>("SELECT COUNT(*) AS n FROM subjects WHERE user_id = ?", auth.user.id)!.n;
-  const unread = one<{ n: number }>("SELECT COUNT(*) AS n FROM user_notifications WHERE user_id = ? AND read_at IS NULL", auth.user.id)!.n;
+export async function mePayload(auth: Auth) {
+  const p = await profileOf(auth.user.id);
+  const access = await accessFor(auth);
+  const subjectCount = (await one<{ n: number }>("SELECT COUNT(*) AS n FROM subjects WHERE user_id = ?", auth.user.id))!.n;
+  const unread = (await one<{ n: number }>("SELECT COUNT(*) AS n FROM user_notifications WHERE user_id = ? AND read_at IS NULL", auth.user.id))!.n;
   const stand = access.standOwner
-    ? one<{ stand_code: string }>(
+    ? await one<{ stand_code: string }>(
         "SELECT s.stand_code FROM stand_assignments a JOIN phone_stands s ON s.id = a.stand_id WHERE a.user_id = ? AND a.unassigned_at IS NULL",
         auth.user.id,
       )
     : undefined;
-  const prefs = one<{ session_sound: number; session_vibrate: number }>(
+  const prefs = await one<{ session_sound: number; session_vibrate: number }>(
     "SELECT session_sound, session_vibrate FROM user_preferences WHERE user_id = ?", auth.user.id,
   );
   return {
@@ -111,4 +111,4 @@ export function mePayload(auth: Auth) {
     alerts: { sound: !!prefs?.session_sound, vibrate: !!prefs?.session_vibrate },
   };
 }
-export type MePayload = ReturnType<typeof mePayload>;
+export type MePayload = Awaited<ReturnType<typeof mePayload>>;

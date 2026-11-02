@@ -54,21 +54,21 @@ async function resolve(): Promise<{ auth: Auth } | { reason: "none" | "replaced"
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return { reason: "none" };
   const now = Date.now();
-  const session = one<SessionRow>("SELECT * FROM auth_sessions WHERE token_hash = ?", sha256(token));
+  const session = await one<SessionRow>("SELECT * FROM auth_sessions WHERE token_hash = ?", sha256(token));
   if (!session) return { reason: "expired" };
   if (session.revoked_at) return { reason: session.revoked_reason === "replaced" ? "replaced" : "expired" };
   if (session.expires_at <= now || session.last_seen_at + TIMING.sessionIdleMs <= now) {
-    run("UPDATE auth_sessions SET revoked_at = ?, revoked_reason = 'expired' WHERE id = ?", now, session.id);
+    await run("UPDATE auth_sessions SET revoked_at = ?, revoked_reason = 'expired' WHERE id = ?", now, session.id);
     return { reason: "expired" };
   }
-  const user = one<UserRow>("SELECT * FROM users WHERE id = ?", session.user_id);
+  const user = await one<UserRow>("SELECT * FROM users WHERE id = ?", session.user_id);
   if (!user) return { reason: "expired" };
   if (now - session.last_seen_at > 60_000) {
-    run("UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?", now, session.id);
-    run("UPDATE devices SET last_seen_at = ? WHERE id = ?", now, session.device_id);
+    await run("UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?", now, session.id);
+    await run("UPDATE devices SET last_seen_at = ? WHERE id = ?", now, session.device_id);
     session.last_seen_at = now;
   }
-  const tz = one<{ timezone: string }>("SELECT timezone FROM user_profiles WHERE user_id = ?", user.id)?.timezone;
+  const tz = (await one<{ timezone: string }>("SELECT timezone FROM user_profiles WHERE user_id = ?", user.id))?.timezone;
   return { auth: { user, session, tz: tz && isValidTimeZone(tz) ? tz : "Asia/Manila", now } };
 }
 
@@ -116,21 +116,22 @@ export async function startSession(req: NextRequest, user: UserRow): Promise<Ses
   const now = Date.now();
   const token = randomToken(32);
   const label = deviceLabel(req.headers.get("user-agent") ?? "");
+  const keyHash = sha256(deviceKey);
 
-  const session = tx(() => {
-    const keyHash = sha256(deviceKey!);
-    let device = one<{ id: number }>("SELECT id FROM devices WHERE user_id = ? AND device_key_hash = ?", user.id, keyHash);
+  const session = await tx(async () => {
+    let device = await one<{ id: number }>("SELECT id FROM devices WHERE user_id = ? AND device_key_hash = ?", user.id, keyHash);
     if (!device) {
-      device = { id: run(
+      const r = await run(
         "INSERT INTO devices (user_id, device_key_hash, label, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?, ?)",
         user.id, keyHash, label, now, now,
-      ).id };
+      );
+      device = { id: r.id };
     } else {
-      run("UPDATE devices SET label = ?, last_seen_at = ? WHERE id = ?", label, now, device.id);
+      await run("UPDATE devices SET label = ?, last_seen_at = ? WHERE id = ?", label, now, device.id);
     }
 
     if (user.account_type === "stand_owner") {
-      run(
+      await run(
         `UPDATE auth_sessions
             SET revoked_at = ?, revoked_reason = CASE WHEN device_id = ? THEN 'logout' ELSE 'replaced' END
           WHERE user_id = ? AND revoked_at IS NULL`,
@@ -138,12 +139,12 @@ export async function startSession(req: NextRequest, user: UserRow): Promise<Ses
       );
     }
 
-    const id = run(
+    const { id } = await run(
       `INSERT INTO auth_sessions (user_id, device_id, token_hash, created_at, last_seen_at, expires_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
       user.id, device.id, sha256(token), now, now, now + TIMING.sessionMaxMs,
-    ).id;
-    return one<SessionRow>("SELECT * FROM auth_sessions WHERE id = ?", id)!;
+    );
+    return (await one<SessionRow>("SELECT * FROM auth_sessions WHERE id = ?", id))!;
   });
 
   store.set(SESSION_COOKIE, token, cookieOpts(req, Math.floor(TIMING.sessionMaxMs / 1000)));
@@ -151,13 +152,13 @@ export async function startSession(req: NextRequest, user: UserRow): Promise<Ses
 }
 
 export async function endSession(sessionId: number | null) {
-  if (sessionId) run("UPDATE auth_sessions SET revoked_at = ?, revoked_reason = 'logout' WHERE id = ? AND revoked_at IS NULL", Date.now(), sessionId);
+  if (sessionId) await run("UPDATE auth_sessions SET revoked_at = ?, revoked_reason = 'logout' WHERE id = ? AND revoked_at IS NULL", Date.now(), sessionId);
   (await cookies()).delete(SESSION_COOKIE);
 }
 
 /** Revokes every session of the user except `keepSessionId`. */
-export function revokeOtherSessions(userId: number, keepSessionId: number | null, reason: "password_changed" | "password_reset") {
-  run(
+export async function revokeOtherSessions(userId: number, keepSessionId: number | null, reason: "password_changed" | "password_reset") {
+  await run(
     "UPDATE auth_sessions SET revoked_at = ?, revoked_reason = ? WHERE user_id = ? AND revoked_at IS NULL AND id != ?",
     Date.now(), reason, userId, keepSessionId ?? -1,
   );
@@ -177,9 +178,9 @@ export function activeSessionsFor(userId: number) {
 // Login throttling (persistent, per username) — complements the in-memory IP limiter.
 // ---------------------------------------------------------------------------
 
-export function assertNotLockedOut(username: string) {
+export async function assertNotLockedOut(username: string) {
   const since = Date.now() - TIMING.loginLockoutMs;
-  const rows = all<{ success: number; created_at: number }>(
+  const rows = await all<{ success: number; created_at: number }>(
     "SELECT success, created_at FROM login_attempts WHERE username = ? AND created_at > ? ORDER BY created_at DESC LIMIT 20",
     username, since,
   );
@@ -194,6 +195,6 @@ export function assertNotLockedOut(username: string) {
   }
 }
 
-export function recordLoginAttempt(username: string, ip: string, success: boolean) {
-  run("INSERT INTO login_attempts (username, ip, success, created_at) VALUES (?, ?, ?, ?)", username, ip, success, Date.now());
+export async function recordLoginAttempt(username: string, ip: string, success: boolean) {
+  await run("INSERT INTO login_attempts (username, ip, success, created_at) VALUES (?, ?, ?, ?)", username, ip, success, Date.now());
 }

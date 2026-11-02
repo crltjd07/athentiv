@@ -14,12 +14,12 @@ import { TIMING } from "@/shared/limits";
 export const POST = route(async () => {
   const auth = await requireAuth();
   const now = Date.now();
-  run("UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?", now, auth.session.id);
-  run("UPDATE devices SET last_seen_at = ? WHERE id = ?", now, auth.session.device_id);
-  if (auth.user.account_type === "stand_owner") extendNfc(auth.session, now);
-  sweepNotifications(auth);
-  const unread = one<{ n: number }>("SELECT COUNT(*) AS n FROM user_notifications WHERE user_id = ? AND read_at IS NULL", auth.user.id)!.n;
-  const premium = premiumOf(auth.user.id, now);
+  await run("UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?", now, auth.session.id);
+  await run("UPDATE devices SET last_seen_at = ? WHERE id = ?", now, auth.session.device_id);
+  if (auth.user.account_type === "stand_owner") await extendNfc(auth.session, now);
+  await sweepNotifications(auth);
+  const unread = (await one<{ n: number }>("SELECT COUNT(*) AS n FROM user_notifications WHERE user_id = ? AND read_at IS NULL", auth.user.id))!.n;
+  const premium = await premiumOf(auth.user.id, now);
   return ok({
     serverNow: now,
     nextInMs: TIMING.heartbeatMs,

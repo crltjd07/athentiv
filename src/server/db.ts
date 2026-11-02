@@ -1,79 +1,86 @@
-import { DatabaseSync, type SQLInputValue, type StatementSync } from "node:sqlite";
-import fs from "node:fs";
+// Database access. Uses libSQL: a hosted Turso database in production (TURSO_DATABASE_URL),
+// or a local SQLite file in development (DATABASE_PATH, default ./data/focusdock.db).
+import { AsyncLocalStorage } from "node:async_hooks";
 import path from "node:path";
+import fs from "node:fs";
+import { createClient, type Client, type InValue, type Transaction } from "@libsql/client";
 import { runMigrations } from "../../db/migrate.mjs";
 
-type Param = SQLInputValue | boolean | undefined;
+type Param = InValue | boolean | undefined;
+type Executor = Client | Transaction;
 
-const g = globalThis as unknown as {
-  __focusdockDb?: DatabaseSync;
-  __focusdockStmts?: Map<string, StatementSync>;
-};
+const g = globalThis as unknown as { __focusdockDb?: Client; __focusdockReady?: Promise<void> };
+const txStore = new AsyncLocalStorage<Transaction>();
 
-export function databasePath(): string {
-  return process.env.DATABASE_PATH || path.join(process.cwd(), "data", "focusdock.db");
+export function databaseUrl(): string {
+  if (process.env.TURSO_DATABASE_URL) return process.env.TURSO_DATABASE_URL;
+  if (process.env.VERCEL) {
+    throw new Error("TURSO_DATABASE_URL is not set. Add TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables, then redeploy.");
+  }
+  const file = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "focusdock.db");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  return "file:" + file;
 }
 
-/** Lazily opens the database and applies pending migrations once per process. */
-export function db(): DatabaseSync {
-  if (!g.__focusdockDb) {
-    const file = databasePath();
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const conn = new DatabaseSync(file);
-    conn.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
-    runMigrations(conn, path.join(process.cwd(), "db", "migrations"));
-    g.__focusdockDb = conn;
-    g.__focusdockStmts = new Map();
-  }
+function client(): Client {
+  g.__focusdockDb ??= createClient({ url: databaseUrl(), authToken: process.env.TURSO_AUTH_TOKEN });
   return g.__focusdockDb;
 }
 
-function stmt(sql: string): StatementSync {
-  const conn = db();
-  const cache = g.__focusdockStmts!;
-  let s = cache.get(sql);
-  if (!s) {
-    s = conn.prepare(sql);
-    cache.set(sql, s);
-  }
-  return s;
+/** Applies pending migrations once per server instance before the first query. */
+function ready(): Promise<void> {
+  g.__focusdockReady ??= runMigrations(client(), path.join(process.cwd(), "db", "migrations"))
+    .then(() => undefined)
+    .catch((e: unknown) => {
+      g.__focusdockReady = undefined;
+      throw e;
+    });
+  return g.__focusdockReady;
 }
 
-// node:sqlite rejects booleans and undefined; normalise them so callers can pass plain JS values.
-function norm(params: Param[]): SQLInputValue[] {
+// libSQL rejects booleans and undefined; normalise them so callers can pass plain JS values.
+function norm(params: Param[]): InValue[] {
   return params.map((p) => (p === undefined ? null : typeof p === "boolean" ? (p ? 1 : 0) : p));
 }
 
-export function one<T>(sql: string, ...params: Param[]): T | undefined {
-  return stmt(sql).get(...norm(params)) as T | undefined;
+async function exec(sql: string, params: Param[]) {
+  const t = txStore.getStore();
+  const target: Executor = t ?? (await ready(), client());
+  return target.execute({ sql, args: norm(params) });
 }
 
-export function all<T>(sql: string, ...params: Param[]): T[] {
-  return stmt(sql).all(...norm(params)) as T[];
+export async function one<T>(sql: string, ...params: Param[]): Promise<T | undefined> {
+  const r = await exec(sql, params);
+  return r.rows[0] as T | undefined;
 }
 
-export function run(sql: string, ...params: Param[]): { changes: number; id: number } {
-  const r = stmt(sql).run(...norm(params));
-  return { changes: Number(r.changes), id: Number(r.lastInsertRowid) };
+export async function all<T>(sql: string, ...params: Param[]): Promise<T[]> {
+  const r = await exec(sql, params);
+  return r.rows as unknown as T[];
 }
 
-let depth = 0;
+export async function run(sql: string, ...params: Param[]): Promise<{ changes: number; id: number }> {
+  const r = await exec(sql, params);
+  return { changes: r.rowsAffected, id: Number(r.lastInsertRowid ?? 0) };
+}
 
-/** Runs `fn` inside a write transaction. Nested calls join the outer transaction. */
-export function tx<T>(fn: () => T): T {
-  const conn = db();
-  if (depth > 0) return fn();
-  conn.exec("BEGIN IMMEDIATE");
-  depth++;
+/**
+ * Runs `fn` inside a write transaction. Every one/all/run call made (and awaited) inside `fn`
+ * goes through the transaction automatically. Nested calls join the outer transaction.
+ */
+export async function tx<T>(fn: () => Promise<T>): Promise<T> {
+  if (txStore.getStore()) return fn();
+  await ready();
+  const t = await client().transaction("write");
   try {
-    const result = fn();
-    conn.exec("COMMIT");
+    const result = await txStore.run(t, fn);
+    await t.commit();
     return result;
   } catch (err) {
-    conn.exec("ROLLBACK");
+    await t.rollback().catch(() => {});
     throw err;
   } finally {
-    depth--;
+    t.close();
   }
 }
 

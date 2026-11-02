@@ -4,5 +4,5 @@ import { billingOverview } from "@/server/billing";
 
 export const GET = route(async () => {
   const auth = await requireAuth();
-  return ok({ ...billingOverview(auth.user.id), accountType: auth.user.account_type, trialGrantedAt: auth.user.trial_granted_at });
+  return ok({ ...(await billingOverview(auth.user.id)), accountType: auth.user.account_type, trialGrantedAt: auth.user.trial_granted_at });
 });

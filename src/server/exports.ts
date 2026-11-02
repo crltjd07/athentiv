@@ -37,8 +37,10 @@ function stamp(tz: string, at: number | null) {
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
 }
 
+type TaskExportRow = { id: number; title: string; type: string; subject: string | null; due_at: number; effort: string; status: "pending" | "in_progress" | "completed"; description: string | null; created_at: number; completed_at: number | null; focus_secs: number };
+
 function loadTasks(auth: Auth, start: number, end: number) {
-  return all<{ id: number; title: string; type: string; subject: string | null; due_at: number; effort: string; status: "pending" | "in_progress" | "completed"; description: string | null; created_at: number; completed_at: number | null; focus_secs: number }>(
+  return all<TaskExportRow>(
     `SELECT t.id, t.title, t.type, s.name AS subject, t.due_at, t.effort, t.status, t.description, t.created_at, t.completed_at,
             (SELECT COALESCE(SUM(p.focused_seconds), 0) FROM pomodoro_sessions p WHERE p.task_id = t.id AND p.kind = 'focus' AND p.status IN ('completed', 'ended_early')) AS focus_secs
        FROM tasks t LEFT JOIN subjects s ON s.id = t.subject_id
@@ -72,17 +74,17 @@ function loadDaily(auth: Auth, from: string, to: string) {
   );
 }
 
-export function buildExport(auth: Auth, kind: ExportKind, format: ExportFormat, from: string, to: string) {
-  const access = accessFor(auth);
-  const deny = (code: string, message: string) => {
-    run("INSERT INTO export_requests (user_id, kind, format, range_start, range_end, status, created_at) VALUES (?, ?, ?, ?, ?, 'denied', ?)",
+export async function buildExport(auth: Auth, kind: ExportKind, format: ExportFormat, from: string, to: string) {
+  const access = await accessFor(auth);
+  const deny = async (code: string, message: string) => {
+    await run("INSERT INTO export_requests (user_id, kind, format, range_start, range_end, status, created_at) VALUES (?, ?, ?, ?, ?, 'denied', ?)",
       auth.user.id, kind, format, dayStart(auth.tz, from), dayStart(auth.tz, addDays(to, 1)), Date.now());
     return err.forbidden(code, message);
   };
-  if (!access.features.exports) throw deny("PREMIUM_REQUIRED", "Data exports are a Premium feature.");
+  if (!access.features.exports) throw await deny("PREMIUM_REQUIRED", "Data exports are a Premium feature.");
   if (!EXPORT_FORMATS[kind].includes(format)) throw err.badRequest(`${format.toUpperCase()} isn't available for this export.`);
-  if (kind === "pomodoro" && !access.standOwner) throw deny("STAND_OWNER_ONLY", "Pomodoro history is only recorded for stand owners.");
-  if (kind === "mood" && !access.features.moodHistory) throw deny("STAND_OWNER_ONLY", "Mood history is available to Premium stand owners only.");
+  if (kind === "pomodoro" && !access.standOwner) throw await deny("STAND_OWNER_ONLY", "Pomodoro history is only recorded for stand owners.");
+  if (kind === "mood" && !access.features.moodHistory) throw await deny("STAND_OWNER_ONLY", "Mood history is available to Premium stand owners only.");
 
   const { tz, now } = auth;
   const start = dayStart(tz, from);
@@ -93,7 +95,7 @@ export function buildExport(auth: Auth, kind: ExportKind, format: ExportFormat, 
   let rows = 0;
 
   if (kind === "tasks") {
-    const tasks = loadTasks(auth, start, end);
+    const tasks = await loadTasks(auth, start, end);
     rows = tasks.length;
     const mapped = tasks.map((t) => ({
       title: t.title, type: taskTypeLabel(t.type), subject: t.subject ?? "", due: stamp(tz, t.due_at), effort: effortOf(t.effort).label,
@@ -103,33 +105,36 @@ export function buildExport(auth: Auth, kind: ExportKind, format: ExportFormat, 
       ? csv(["Title", "Type", "Subject", "Due", "Effort", "Status", "Focus minutes", "Created", "Completed", "Description"], mapped.map(Object.values))
       : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, tasks: mapped }, null, 2);
   } else if (kind === "pomodoro") {
-    const s = loadSessions(auth, start, end);
+    const s = await loadSessions(auth, start, end);
     rows = s.length;
     const mapped = s.map((p) => ({ started: stamp(tz, p.started_at), ended: stamp(tz, p.ended_at), status: p.status, preset: p.preset, plannedMinutes: Math.round(p.planned_seconds / 60), focusedMinutes: Math.round((p.focused_seconds ?? 0) / 60), task: p.task ?? "General study", subject: p.subject ?? "" }));
     body = format === "csv"
       ? csv(["Started", "Ended", "Status", "Preset", "Planned minutes", "Focused minutes", "Task", "Subject"], mapped.map(Object.values))
       : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, sessions: mapped }, null, 2);
   } else if (kind === "mood") {
-    const m = loadMood(auth, start, end);
+    const m = await loadMood(auth, start, end);
     rows = m.length;
     const mapped = m.map((c) => ({ at: stamp(tz, c.created_at), mood: moodOf(c.mood).label, mindset: mindsetOf(c.mindset).label, intensity: c.intensity ?? "", note: c.note ?? "" }));
     body = format === "csv"
       ? csv(["Date", "Mood", "Mindset", "Intensity (1-5)", "Note"], mapped.map(Object.values))
       : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, checkins: mapped }, null, 2);
   } else if (kind === "stats" && format !== "pdf") {
-    const d = loadDaily(auth, from, to);
+    const d = await loadDaily(auth, from, to);
     rows = d.length;
     body = format === "csv"
       ? csv(["Day", "Focus minutes", "Focus sessions", "Tasks completed", "Tasks created", "Check-ins"], d.map((r) => [r.day, r.focus_minutes, r.focus_sessions, r.tasks_completed, r.tasks_created, r.checkins]))
-      : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, summary: summary(auth, { range: "custom", from, to }).overview, days: d }, null, 2);
+      : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, summary: (await summary(auth, { range: "custom", from, to })).overview, days: d }, null, 2);
   } else if (format === "json") {
     // kind === "full"
-    const profile = one<Record<string, unknown>>("SELECT display_name, avatar_key, school, course, year_level, daily_goal_minutes, timezone FROM user_profiles WHERE user_id = ?", auth.user.id);
-    const subjects = all("SELECT name, color, icon, created_at FROM subjects WHERE user_id = ? ORDER BY name", auth.user.id);
-    const tasks = loadTasks(auth, start, end).map((t) => ({
-      ...t, status: derivedStatus(t, now), due: stamp(tz, t.due_at),
-      checklist: all("SELECT label, done FROM task_checklist_items WHERE task_id = ? ORDER BY sort_order", t.id),
-    }));
+    const profile = await one<Record<string, unknown>>("SELECT display_name, avatar_key, school, course, year_level, daily_goal_minutes, timezone FROM user_profiles WHERE user_id = ?", auth.user.id);
+    const subjects = await all("SELECT name, color, icon, created_at FROM subjects WHERE user_id = ? ORDER BY name", auth.user.id);
+    const tasks = [];
+    for (const t of await loadTasks(auth, start, end)) {
+      tasks.push({
+        ...t, status: derivedStatus(t, now), due: stamp(tz, t.due_at),
+        checklist: await all("SELECT label, done FROM task_checklist_items WHERE task_id = ? ORDER BY sort_order", t.id),
+      });
+    }
     const data = {
       product: "ATHENTIV FocusDock",
       exportedAt: new Date(now).toISOString(),
@@ -139,20 +144,20 @@ export function buildExport(auth: Auth, kind: ExportKind, format: ExportFormat, 
       profile,
       subjects,
       tasks,
-      pomodoroSessions: access.standOwner ? loadSessions(auth, start, end) : undefined,
-      moodCheckins: includeMood ? loadMood(auth, start, end) : undefined,
-      dailySummaries: loadDaily(auth, from, to),
+      pomodoroSessions: access.standOwner ? await loadSessions(auth, start, end) : undefined,
+      moodCheckins: includeMood ? await loadMood(auth, start, end) : undefined,
+      dailySummaries: await loadDaily(auth, from, to),
     };
     rows = tasks.length;
     body = JSON.stringify(data, null, 2);
   } else {
     // PDF report (stats or full)
-    const r = reportPdf(auth, from, to, kind === "full", access.standOwner, includeMood);
+    const r = await reportPdf(auth, from, to, kind === "full", access.standOwner, includeMood);
     body = r.buffer;
     rows = r.rows;
   }
 
-  run(
+  await run(
     "INSERT INTO export_requests (user_id, kind, format, range_start, range_end, status, row_count, created_at) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)",
     auth.user.id, kind, format, start, end, rows, now,
   );
@@ -160,9 +165,9 @@ export function buildExport(auth: Auth, kind: ExportKind, format: ExportFormat, 
   return { filename: `${base}.${format}`, contentType, body };
 }
 
-function reportPdf(auth: Auth, from: string, to: string, full: boolean, standOwner: boolean, includeMood: boolean) {
-  const s = summary(auth, { range: "custom", from, to });
-  const name = one<{ display_name: string }>("SELECT display_name FROM user_profiles WHERE user_id = ?", auth.user.id)!.display_name;
+async function reportPdf(auth: Auth, from: string, to: string, full: boolean, standOwner: boolean, includeMood: boolean) {
+  const s = await summary(auth, { range: "custom", from, to });
+  const name = (await one<{ display_name: string }>("SELECT display_name FROM user_profiles WHERE user_id = ?", auth.user.id))!.display_name;
   const pdf = new Pdf();
   const W = pdf.width - pdf.margin * 2;
 
@@ -234,7 +239,7 @@ function reportPdf(auth: Auth, from: string, to: string, full: boolean, standOwn
   if (full) {
     const start = dayStart(auth.tz, from);
     const end = dayStart(auth.tz, addDays(to, 1));
-    const tasks = loadTasks(auth, start, end);
+    const tasks = await loadTasks(auth, start, end);
     rows += tasks.length;
     pdf.heading(`Tasks (${tasks.length})`);
     pdf.table(
@@ -243,7 +248,7 @@ function reportPdf(auth: Auth, from: string, to: string, full: boolean, standOwn
       [0, 190, 300, 400, 440],
     );
     if (standOwner) {
-      const sessions = loadSessions(auth, start, end);
+      const sessions = await loadSessions(auth, start, end);
       rows += sessions.length;
       pdf.heading(`Focus sessions (${sessions.length})`);
       pdf.table(

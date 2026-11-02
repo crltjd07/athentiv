@@ -2,7 +2,7 @@ import { z } from "zod";
 import { all, run, tx } from "@/server/db";
 import { err, ok, readJson, readQuery, route } from "@/server/http";
 import { requireAuth } from "@/server/auth";
-import { premiumOf } from "@/server/access";
+import { isPremium } from "@/server/access";
 import { recomputeAt, checkAchievements } from "@/server/activity";
 import { assertCanOpenTask, assertOwnedSubject, getOwnedTask, openTaskCount, serializeTask, TASK_SELECT, type TaskRow } from "@/server/tasks";
 import { taskSchema } from "@/shared/schemas";
@@ -24,7 +24,7 @@ const querySchema = z.object({
 export const GET = route(async (req) => {
   const auth = await requireAuth();
   const q = readQuery(req, querySchema);
-  const premium = premiumOf(auth.user.id, auth.now).active;
+  const premium = await isPremium(auth.user.id, auth.now);
 
   // Advanced filters and sorts are Premium-only — enforced here, not just hidden in the UI.
   if (!premium && (q.subject !== undefined || q.effort !== undefined || q.sort === "effort" || q.sort === "subject")) {
@@ -63,10 +63,10 @@ export const GET = route(async (req) => {
     subject: "t.status = 'completed', s.name IS NULL, s.name COLLATE NOCASE, t.due_at",
   }[q.sort];
 
-  const rows = all<TaskRow>(`${TASK_SELECT} WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ?`, ...params, q.limit);
+  const rows = await all<TaskRow>(`${TASK_SELECT} WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ?`, ...params, q.limit);
   return ok({
     items: rows.map((r) => serializeTask(r, now)),
-    openCount: openTaskCount(auth.user.id),
+    openCount: await openTaskCount(auth.user.id),
     maxOpen: premium ? null : LIMITS.freeOpenTasks,
   });
 });
@@ -74,18 +74,18 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const auth = await requireAuth();
   const input = await readJson(req, taskSchema);
-  const task = tx(() => {
-    assertCanOpenTask(auth);
-    assertOwnedSubject(auth, input.subjectId);
+  const task = await tx(async () => {
+    await assertCanOpenTask(auth);
+    await assertOwnedSubject(auth, input.subjectId);
     const now = Date.now();
-    const id = run(
+    const { id } = await run(
       `INSERT INTO tasks (user_id, subject_id, title, type, due_at, effort, description, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
       auth.user.id, input.subjectId, input.title, input.type, input.dueAt, input.effort, input.description || null, now, now,
-    ).id;
-    run("INSERT INTO task_status_history (task_id, from_status, to_status, source, changed_at) VALUES (?, NULL, 'pending', 'user', ?)", id, now);
-    recomputeAt(auth.user.id, auth.tz, now);
-    checkAchievements(auth.user.id, auth.tz, auth.user.account_type === "stand_owner");
+    );
+    await run("INSERT INTO task_status_history (task_id, from_status, to_status, source, changed_at) VALUES (?, NULL, 'pending', 'user', ?)", id, now);
+    await recomputeAt(auth.user.id, auth.tz, now);
+    await checkAchievements(auth.user.id, auth.tz, auth.user.account_type === "stand_owner");
     return getOwnedTask(auth, id);
   });
   return ok({ task: serializeTask(task, Date.now()) }, { status: 201 });

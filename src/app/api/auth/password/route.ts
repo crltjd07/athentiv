@@ -15,9 +15,9 @@ export const POST = route(async (req) => {
     throw new ApiError(400, "SAME_PASSWORD", "Choose a password different from your current one.");
   }
   const hash = await hashPassword(input.newPassword);
-  tx(() => {
-    run("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?", hash, Date.now(), auth.user.id);
-    revokeOtherSessions(auth.user.id, auth.session.id, "password_changed");
+  await tx(async () => {
+    await run("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?", hash, Date.now(), auth.user.id);
+    await revokeOtherSessions(auth.user.id, auth.session.id, "password_changed");
   });
   return ok({ ok: true });
 });

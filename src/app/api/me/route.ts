@@ -5,6 +5,6 @@ import { sweepNotifications } from "@/server/activity";
 
 export const GET = route(async () => {
   const auth = await requireAuth();
-  sweepNotifications(auth);
-  return ok(mePayload(auth));
+  await sweepNotifications(auth);
+  return ok(await mePayload(auth));
 });

@@ -25,10 +25,10 @@ export const POST = route(async (req) => {
   const input = await readJson(req, spotifyLinkSchema);
   const parsed = parseSpotify(input.url);
   if (!parsed) throw err.badRequest("Paste a Spotify playlist or album link, e.g. https://open.spotify.com/playlist/…");
-  const count = one<{ n: number }>("SELECT COUNT(*) AS n FROM spotify_playlists WHERE user_id = ?", auth.user.id)!.n;
+  const count = (await one<{ n: number }>("SELECT COUNT(*) AS n FROM spotify_playlists WHERE user_id = ?", auth.user.id))!.n;
   if (count >= LIMITS.maxSpotifyLinks) throw err.badRequest(`You can save up to ${LIMITS.maxSpotifyLinks} Spotify links.`);
   try {
-    run(
+    await run(
       "INSERT INTO spotify_playlists (user_id, spotify_type, spotify_id, label, created_at) VALUES (?, ?, ?, ?, ?)",
       auth.user.id, parsed.type, parsed.id, input.label || (parsed.type === "album" ? "Study album" : "Study playlist"), Date.now(),
     );

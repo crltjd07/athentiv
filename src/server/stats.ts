@@ -10,9 +10,10 @@ import { moodOf, MOODS, taskTypeLabel } from "@/shared/catalog";
 import { TIME } from "@/shared/limits";
 
 type DayRow = { day: string; focus_minutes: number; focus_sessions: number; tasks_completed: number; tasks_created: number; checkins: number };
+type Daily = { day: string; focusMinutes: number; focusSessions: number; tasksCompleted: number; tasksCreated: number; checkins: number };
 
-function rollups(userId: number, from: string, to: string) {
-  const rows = all<DayRow>(
+async function rollups(userId: number, from: string, to: string): Promise<Daily[]> {
+  const rows = await all<DayRow>(
     "SELECT * FROM daily_productivity_summaries WHERE user_id = ? AND day >= ? AND day <= ? ORDER BY day", userId, from, to,
   );
   const map = new Map(rows.map((r) => [r.day, r]));
@@ -29,7 +30,7 @@ function rollups(userId: number, from: string, to: string) {
   });
 }
 
-function totals(days: ReturnType<typeof rollups>) {
+function totals(days: Daily[]) {
   return days.reduce(
     (a, d) => ({
       focusMinutes: a.focusMinutes + d.focusMinutes,
@@ -42,14 +43,14 @@ function totals(days: ReturnType<typeof rollups>) {
   );
 }
 
-function dueStats(userId: number, start: number, end: number, now: number) {
-  const r = one<{ due: number; done: number; missed: number }>(
+async function dueStats(userId: number, start: number, end: number, now: number) {
+  const r = (await one<{ due: number; done: number; missed: number }>(
     `SELECT COUNT(*) AS due,
             COALESCE(SUM(status = 'completed'), 0) AS done,
             COALESCE(SUM((status = 'completed' AND completed_at > due_at) OR (status != 'completed' AND due_at < ?)), 0) AS missed
        FROM tasks WHERE user_id = ? AND due_at >= ? AND due_at < ?`,
     now, userId, start, end,
-  )!;
+  ))!;
   return { due: r.due, done: r.done, missed: r.missed, completionRate: r.due ? Math.round((r.done / r.due) * 100) : null };
 }
 
@@ -73,8 +74,8 @@ export function resolveRange(auth: Auth, input: RangeInput) {
   return { from: weekStartOf(today), to: addDays(weekStartOf(today), 6), label: "This week" };
 }
 
-export function summary(auth: Auth, input: RangeInput) {
-  const access = accessFor(auth);
+export async function summary(auth: Auth, input: RangeInput) {
+  const access = await accessFor(auth);
   const advanced = access.features.advancedSummary;
   const { user, tz, now } = auth;
   const range = resolveRange(auth, advanced ? input : { range: "week" });
@@ -82,15 +83,15 @@ export function summary(auth: Auth, input: RangeInput) {
   const end = dayStart(tz, addDays(range.to, 1));
   const length = daysBetween(range.from, range.to) + 1;
 
-  const daily = rollups(user.id, range.from, range.to);
+  const daily = await rollups(user.id, range.from, range.to);
   const t = totals(daily);
-  const due = dueStats(user.id, start, end, now);
-  const open = one<{ pending: number; overdue: number }>(
+  const due = await dueStats(user.id, start, end, now);
+  const open = (await one<{ pending: number; overdue: number }>(
     `SELECT COALESCE(SUM(due_at >= ?), 0) AS pending, COALESCE(SUM(due_at < ?), 0) AS overdue
        FROM tasks WHERE user_id = ? AND status != 'completed'`,
     now, now, user.id,
-  )!;
-  const goal = one<{ daily_goal_minutes: number }>("SELECT daily_goal_minutes FROM user_profiles WHERE user_id = ?", user.id)!.daily_goal_minutes;
+  ))!;
+  const goal = (await one<{ daily_goal_minutes: number }>("SELECT daily_goal_minutes FROM user_profiles WHERE user_id = ?", user.id))!.daily_goal_minutes;
 
   const overview = {
     focusMinutes: t.focusMinutes,
@@ -110,9 +111,9 @@ export function summary(auth: Auth, input: RangeInput) {
     ? activeDays.reduce((a, b) => (b.focusMinutes * 2 + b.tasksCompleted * 30 > a.focusMinutes * 2 + a.tasksCompleted * 30 ? b : a))
     : null;
 
-  const upcoming = all<TaskRow>(
+  const upcoming = (await all<TaskRow>(
     `${TASK_SELECT} WHERE t.user_id = ? AND t.status != 'completed' AND t.due_at >= ? ORDER BY t.due_at LIMIT 5`, user.id, now,
-  ).map((r) => serializeTask(r, now));
+  )).map((r) => serializeTask(r, now));
 
   const result = {
     tier: advanced ? ("advanced" as const) : ("basic" as const),
@@ -122,12 +123,12 @@ export function summary(auth: Auth, input: RangeInput) {
     daily,
     bestDay: best && { day: best.day, weekday: weekdayName(best.day), focusMinutes: best.focusMinutes, tasksCompleted: best.tasksCompleted },
     upcoming,
-    streak: streakOf(user.id, tz, now),
+    streak: await streakOf(user.id, tz, now),
     previous: null as null | { from: string; to: string; overview: ReturnType<typeof totals> & { completionRate: number | null } },
     subjectFocus: [] as { subjectId: number | null; name: string; color: string; minutes: number }[],
     subjectProgress: [] as { subjectId: number | null; name: string; color: string; total: number; completed: number; open: number; overdue: number }[],
     typeDistribution: [] as { type: string; label: string; count: number }[],
-    mood: null as null | ReturnType<typeof moodInsights>,
+    mood: null as null | Awaited<ReturnType<typeof moodInsights>>,
     insights: [] as string[],
   };
 
@@ -138,10 +139,10 @@ export function summary(auth: Auth, input: RangeInput) {
     result.previous = {
       from: prevFrom,
       to: prevTo,
-      overview: { ...totals(rollups(user.id, prevFrom, prevTo)), completionRate: dueStats(user.id, prevStart, start, now).completionRate },
+      overview: { ...totals(await rollups(user.id, prevFrom, prevTo)), completionRate: (await dueStats(user.id, prevStart, start, now)).completionRate },
     };
 
-    result.subjectFocus = all<{ subject_id: number | null; name: string | null; color: string | null; secs: number }>(
+    result.subjectFocus = (await all<{ subject_id: number | null; name: string | null; color: string | null; secs: number }>(
       `SELECT s.id AS subject_id, s.name, s.color, SUM(p.focused_seconds) AS secs
          FROM pomodoro_sessions p
          LEFT JOIN tasks t ON t.id = p.task_id
@@ -149,11 +150,11 @@ export function summary(auth: Auth, input: RangeInput) {
         WHERE p.user_id = ? AND p.kind = 'focus' AND p.status IN ('completed', 'ended_early') AND p.ended_at >= ? AND p.ended_at < ?
         GROUP BY s.id ORDER BY secs DESC`,
       user.id, start, end,
-    )
+    ))
       .map((r) => ({ subjectId: r.subject_id, name: r.name ?? "General study", color: r.color ?? "#94A3B8", minutes: Math.round(r.secs / 60) }))
       .filter((r) => r.minutes > 0);
 
-    result.subjectProgress = all<{ subject_id: number | null; name: string | null; color: string | null; total: number; completed: number; open_: number; overdue: number }>(
+    result.subjectProgress = (await all<{ subject_id: number | null; name: string | null; color: string | null; total: number; completed: number; open_: number; overdue: number }>(
       `SELECT s.id AS subject_id, s.name, s.color, COUNT(*) AS total,
               SUM(t.status = 'completed') AS completed,
               SUM(t.status != 'completed') AS open_,
@@ -162,22 +163,23 @@ export function summary(auth: Auth, input: RangeInput) {
         WHERE t.user_id = ? AND (t.due_at >= ? AND t.due_at < ? OR t.status != 'completed')
         GROUP BY s.id ORDER BY total DESC`,
       now, user.id, start, end,
-    ).map((r) => ({ subjectId: r.subject_id, name: r.name ?? "No subject", color: r.color ?? "#94A3B8", total: r.total, completed: r.completed, open: r.open_, overdue: r.overdue }));
+    )).map((r) => ({ subjectId: r.subject_id, name: r.name ?? "No subject", color: r.color ?? "#94A3B8", total: r.total, completed: r.completed, open: r.open_, overdue: r.overdue }));
 
-    result.typeDistribution = all<{ type: string; n: number }>(
+    result.typeDistribution = (await all<{ type: string; n: number }>(
       "SELECT type, COUNT(*) AS n FROM tasks WHERE user_id = ? AND due_at >= ? AND due_at < ? GROUP BY type ORDER BY n DESC",
       user.id, start, end,
-    ).map((r) => ({ type: r.type, label: taskTypeLabel(r.type), count: r.n }));
+    )).map((r) => ({ type: r.type, label: taskTypeLabel(r.type), count: r.n }));
 
-    if (access.features.moodHistory) result.mood = moodInsights(user.id, tz, range.from, range.to, daily);
+    if (access.features.moodHistory) result.mood = await moodInsights(user.id, tz, range.from, range.to, daily);
   }
 
   result.insights = buildInsights(result, access.standOwner, range.label.toLowerCase());
   return result;
 }
+type Summary = Awaited<ReturnType<typeof summary>>;
 
-export function moodInsights(userId: number, tz: string, from: string, to: string, daily: { day: string; focusMinutes: number }[]) {
-  const rows = all<{ mood: string; mindset: string; created_at: number }>(
+export async function moodInsights(userId: number, tz: string, from: string, to: string, daily: { day: string; focusMinutes: number }[]) {
+  const rows = await all<{ mood: string; mindset: string; created_at: number }>(
     "SELECT mood, mindset, created_at FROM mood_checkins WHERE user_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at",
     userId, dayStart(tz, from), dayStart(tz, addDays(to, 1)),
   );
@@ -202,7 +204,7 @@ export function moodInsights(userId: number, tz: string, from: string, to: strin
   return { total: rows.length, distribution, daily: dailyMood, byMood };
 }
 
-function buildInsights(s: ReturnType<typeof summary>, standOwner: boolean, period: string): string[] {
+function buildInsights(s: Summary, standOwner: boolean, period: string): string[] {
   const out: string[] = [];
   const o = s.overview;
   if (standOwner && o.focusSessions > 0) {
@@ -247,27 +249,27 @@ function buildInsights(s: ReturnType<typeof summary>, standOwner: boolean, perio
 // Dashboard
 // ---------------------------------------------------------------------------
 
-export function dashboard(auth: Auth) {
-  const access = accessFor(auth);
+export async function dashboard(auth: Auth) {
+  const standOwner = auth.user.account_type === "stand_owner";
   const { user, tz, now } = auth;
   const today = dayOf(tz, now);
   const todayStart = dayStart(tz, today);
   const tomorrowStart = dayStart(tz, addDays(today, 1));
-  const roll = rollups(user.id, today, today)[0];
-  const goal = one<{ daily_goal_minutes: number }>("SELECT daily_goal_minutes FROM user_profiles WHERE user_id = ?", user.id)!.daily_goal_minutes;
+  const roll = (await rollups(user.id, today, today))[0];
+  const goal = (await one<{ daily_goal_minutes: number }>("SELECT daily_goal_minutes FROM user_profiles WHERE user_id = ?", user.id))!.daily_goal_minutes;
 
-  const open = all<TaskRow>(`${TASK_SELECT} WHERE t.user_id = ? AND t.status != 'completed' ORDER BY t.due_at`, user.id).map((r) => serializeTask(r, now));
-  const dueToday = all<TaskRow>(
+  const open = (await all<TaskRow>(`${TASK_SELECT} WHERE t.user_id = ? AND t.status != 'completed' ORDER BY t.due_at`, user.id)).map((r) => serializeTask(r, now));
+  const dueToday = (await all<TaskRow>(
     `${TASK_SELECT} WHERE t.user_id = ? AND t.due_at >= ? AND t.due_at < ? ORDER BY t.status = 'completed', t.due_at`,
     user.id, todayStart, tomorrowStart,
-  ).map((r) => serializeTask(r, now));
-  const lastCheckin = access.standOwner
-    ? one<{ mood: string; mindset: string; created_at: number }>(
+  )).map((r) => serializeTask(r, now));
+  const lastCheckin = standOwner
+    ? await one<{ mood: string; mindset: string; created_at: number }>(
         "SELECT mood, mindset, created_at FROM mood_checkins WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 1",
         user.id, todayStart,
       )
     : undefined;
-  const totalTasks = one<{ n: number }>("SELECT COUNT(*) AS n FROM tasks WHERE user_id = ?", user.id)!.n;
+  const totalTasks = (await one<{ n: number }>("SELECT COUNT(*) AS n FROM tasks WHERE user_id = ?", user.id))!.n;
 
   return {
     today: {
@@ -279,13 +281,13 @@ export function dashboard(auth: Auth) {
       tasksDue: dueToday.length,
       tasksDueDone: dueToday.filter((t) => t.status === "completed").length,
     },
-    streak: streakOf(user.id, tz, now),
+    streak: await streakOf(user.id, tz, now),
     openCount: open.length,
     overdueCount: open.filter((t) => t.status === "overdue").length,
     upcoming: open.slice(0, 5),
     dueToday,
     checkin: lastCheckin ? { mood: lastCheckin.mood, mindset: lastCheckin.mindset, at: lastCheckin.created_at } : null,
-    recommendations: recommendations(access.standOwner, open, lastCheckin?.mood ?? null, totalTasks, now),
+    recommendations: recommendations(standOwner, open, lastCheckin?.mood ?? null, totalTasks, now),
   };
 }
 

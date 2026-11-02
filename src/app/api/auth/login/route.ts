@@ -11,20 +11,20 @@ export const POST = route(async (req) => {
   const ip = clientIp(req);
   rateLimit(`login:${ip}`, 20, 10 * 60_000);
   const input = await readJson(req, loginSchema);
-  assertNotLockedOut(input.username);
+  await assertNotLockedOut(input.username);
 
-  const user = one<UserRow>("SELECT * FROM users WHERE username = ?", input.username);
+  const user = await one<UserRow>("SELECT * FROM users WHERE username = ?", input.username);
   const valid = user ? await verifyPassword(input.password, user.password_hash) : (await burnPasswordCheck(input.password), false);
-  recordLoginAttempt(input.username, ip, valid);
+  await recordLoginAttempt(input.username, ip, valid);
   if (!user || !valid) throw new ApiError(401, "INVALID_CREDENTIALS", "Incorrect username or password.");
 
   const session = await startSession(req, user);
 
   if (input.timezone && isValidTimeZone(input.timezone)) {
-    const current = one<{ timezone: string }>("SELECT timezone FROM user_profiles WHERE user_id = ?", user.id)?.timezone;
+    const current = (await one<{ timezone: string }>("SELECT timezone FROM user_profiles WHERE user_id = ?", user.id))?.timezone;
     if (current !== input.timezone) {
-      run("UPDATE user_profiles SET timezone = ?, updated_at = ? WHERE user_id = ?", input.timezone, Date.now(), user.id);
-      rebuildRollups(user.id, input.timezone);
+      await run("UPDATE user_profiles SET timezone = ?, updated_at = ? WHERE user_id = ?", input.timezone, Date.now(), user.id);
+      await rebuildRollups(user.id, input.timezone);
     }
   }
 
@@ -32,9 +32,9 @@ export const POST = route(async (req) => {
   let nfc: Record<string, unknown> | null = null;
   if (input.nfc) {
     try {
-      const { stand, owner } = resolveStand(input.nfc.code, input.nfc.key, ip);
+      const { stand, owner } = await resolveStand(input.nfc.code, input.nfc.key, ip);
       const auth = { user, session, tz: "Asia/Manila", now: Date.now() };
-      nfc = { ok: true, ...verifySession(auth, stand.id, owner.id, ip) };
+      nfc = { ok: true, ...(await verifySession(auth, stand.id, owner.id, ip)) };
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;
       nfc = { ok: false, code: e.code, message: e.message };

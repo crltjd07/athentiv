@@ -5,7 +5,7 @@ export const GET = route(async () => {
   const auth = await requireAuth();
   return ok({
     oneDeviceRule: auth.user.account_type === "stand_owner",
-    sessions: activeSessionsFor(auth.user.id).map((s) => ({
+    sessions: (await activeSessionsFor(auth.user.id)).map((s) => ({
       id: s.id,
       label: s.label,
       createdAt: s.created_at,

@@ -1,7 +1,7 @@
 import { all, one, run } from "./db";
 import { err } from "./http";
 import type { Auth } from "./auth";
-import { premiumOf } from "./access";
+import { isPremium } from "./access";
 import { recomputeAt, checkAchievements } from "./activity";
 import { LIMITS, TIME } from "@/shared/limits";
 import type { TaskStatus } from "@/shared/catalog";
@@ -53,8 +53,8 @@ export function serializeTask(t: TaskRow, now: number) {
     id: t.id,
     title: t.title,
     type: t.type,
-    subjectId: t.subject_id,
-    subject: t.subject_id ? { id: t.subject_id, name: t.subject_name!, color: t.subject_color!, icon: t.subject_icon! } : null,
+    subjectId: t.subject_name ? t.subject_id : null,
+    subject: t.subject_id && t.subject_name ? { id: t.subject_id, name: t.subject_name, color: t.subject_color!, icon: t.subject_icon! } : null,
     dueAt: t.due_at,
     effort: t.effort,
     description: t.description,
@@ -70,20 +70,20 @@ export function serializeTask(t: TaskRow, now: number) {
 }
 export type TaskDTO = ReturnType<typeof serializeTask>;
 
-export function getOwnedTask(auth: Auth, id: number): TaskRow {
-  const t = one<TaskRow>(`${TASK_SELECT} WHERE t.id = ? AND t.user_id = ?`, id, auth.user.id);
+export async function getOwnedTask(auth: Auth, id: number): Promise<TaskRow> {
+  const t = await one<TaskRow>(`${TASK_SELECT} WHERE t.id = ? AND t.user_id = ?`, id, auth.user.id);
   if (!t) throw err.notFound("Task not found.");
   return t;
 }
 
-export function openTaskCount(userId: number): number {
-  return one<{ n: number }>("SELECT COUNT(*) AS n FROM tasks WHERE user_id = ? AND status != 'completed'", userId)!.n;
+export async function openTaskCount(userId: number): Promise<number> {
+  return (await one<{ n: number }>("SELECT COUNT(*) AS n FROM tasks WHERE user_id = ? AND status != 'completed'", userId))!.n;
 }
 
 /** Freemium accounts may hold at most three open (not completed) tasks. Call inside a transaction. */
-export function assertCanOpenTask(auth: Auth) {
-  if (premiumOf(auth.user.id, auth.now).active) return;
-  const open = openTaskCount(auth.user.id);
+export async function assertCanOpenTask(auth: Auth) {
+  if (await isPremium(auth.user.id, auth.now)) return;
+  const open = await openTaskCount(auth.user.id);
   if (open >= LIMITS.freeOpenTasks) {
     throw err.forbidden(
       "TASK_LIMIT",
@@ -93,31 +93,43 @@ export function assertCanOpenTask(auth: Auth) {
   }
 }
 
-export function assertOwnedSubject(auth: Auth, subjectId: number | null | undefined) {
+export async function assertOwnedSubject(auth: Auth, subjectId: number | null | undefined) {
   if (subjectId == null) return;
-  if (!one("SELECT 1 FROM subjects WHERE id = ? AND user_id = ?", subjectId, auth.user.id)) {
+  if (!(await one("SELECT 1 FROM subjects WHERE id = ? AND user_id = ?", subjectId, auth.user.id))) {
     throw err.badRequest("That subject doesn't exist.");
   }
 }
 
 /** Changes a task's stored status, logs it, and keeps rollups/achievements current. */
-export function changeStatus(auth: Auth, task: TaskRow, to: TaskRow["status"], source: "user" | "pomodoro" | "system") {
+export async function changeStatus(auth: Auth, task: TaskRow, to: TaskRow["status"], source: "user" | "pomodoro" | "system") {
   if (task.status === to) return;
-  if (task.status === "completed" && to !== "completed") assertCanOpenTask(auth);
+  if (task.status === "completed" && to !== "completed") await assertCanOpenTask(auth);
   const now = Date.now();
   const completedAt = to === "completed" ? now : null;
-  run("UPDATE tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?", to, completedAt, now, task.id);
-  run(
+  await run("UPDATE tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?", to, completedAt, now, task.id);
+  await run(
     "INSERT INTO task_status_history (task_id, from_status, to_status, source, changed_at) VALUES (?, ?, ?, ?, ?)",
     task.id, task.status, to, source, now,
   );
-  recomputeAt(auth.user.id, auth.tz, task.completed_at, completedAt);
-  if (to === "completed") checkAchievements(auth.user.id, auth.tz, auth.user.account_type === "stand_owner");
+  await recomputeAt(auth.user.id, auth.tz, task.completed_at, completedAt);
+  if (to === "completed") await checkAchievements(auth.user.id, auth.tz, auth.user.account_type === "stand_owner");
 }
 
-export function statusHistory(taskId: number) {
-  return all<{ from_status: string | null; to_status: string; source: string; changed_at: number }>(
+/**
+ * Deletes a task and everything that depends on it. Done explicitly (not only via ON DELETE
+ * rules) so behaviour is identical whether or not the database enforces foreign keys.
+ */
+export async function deleteTask(auth: Auth, task: TaskRow) {
+  await run("DELETE FROM task_checklist_items WHERE task_id = ?", task.id);
+  await run("DELETE FROM task_status_history WHERE task_id = ?", task.id);
+  await run("UPDATE pomodoro_sessions SET task_id = NULL WHERE task_id = ? AND user_id = ?", task.id, auth.user.id);
+  await run("DELETE FROM tasks WHERE id = ? AND user_id = ?", task.id, auth.user.id);
+  await recomputeAt(auth.user.id, auth.tz, task.created_at, task.completed_at);
+}
+
+export async function statusHistory(taskId: number) {
+  return (await all<{ from_status: string | null; to_status: string; source: string; changed_at: number }>(
     "SELECT from_status, to_status, source, changed_at FROM task_status_history WHERE task_id = ? ORDER BY changed_at DESC LIMIT 20",
     taskId,
-  ).map((h) => ({ from: h.from_status, to: h.to_status, source: h.source, at: h.changed_at }));
+  )).map((h) => ({ from: h.from_status, to: h.to_status, source: h.source, at: h.changed_at }));
 }

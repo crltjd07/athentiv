@@ -8,12 +8,12 @@ import { sessionHistory } from "@/server/pomodoro";
 export const GET = route(async () => {
   const auth = await requireAuth();
   requireStandOwner(auth);
-  const access = accessFor(auth);
-  const items = sessionHistory(auth, access.limits.historySessions);
+  const access = await accessFor(auth);
+  const items = await sessionHistory(auth, access.limits.historySessions);
 
   let stats = null;
   if (access.isPremium) {
-    const s = one<{ completed: number; ended_early: number; cancelled: number; secs: number; avg_secs: number | null; longest: number | null }>(
+    const s = (await one<{ completed: number; ended_early: number; cancelled: number; secs: number; avg_secs: number | null; longest: number | null }>(
       `SELECT COALESCE(SUM(status = 'completed'), 0) AS completed,
               COALESCE(SUM(status = 'ended_early'), 0) AS ended_early,
               COALESCE(SUM(status = 'cancelled'), 0) AS cancelled,
@@ -22,7 +22,7 @@ export const GET = route(async () => {
               MAX(CASE WHEN status IN ('completed', 'ended_early') THEN focused_seconds END) AS longest
          FROM pomodoro_sessions WHERE user_id = ? AND kind = 'focus'`,
       auth.user.id,
-    )!;
+    ))!;
     const finished = s.completed + s.ended_early + s.cancelled;
     stats = {
       completedSessions: s.completed,

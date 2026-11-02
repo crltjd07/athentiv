@@ -8,7 +8,7 @@ export const GET = route(async () => {
   const auth = await requireAuth();
   requireStandOwner(auth);
   return ok({
-    ...standInfo(auth),
+    ...(await standInfo(auth)),
     nfc: nfcOf(auth.session, auth.now),
     rules: { nfcGraceMs: TIMING.nfcGraceMs, nfcMaxMs: TIMING.nfcMaxMs, heartbeatMs: TIMING.heartbeatMs },
   });

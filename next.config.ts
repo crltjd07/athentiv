@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
     workerThreads: false,
   },
   poweredByHeader: false,
+  // Migrations are read from disk at runtime, so ship them with every server function (Vercel).
+  outputFileTracingIncludes: {
+    "/**": ["./db/migrations/*.sql"],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

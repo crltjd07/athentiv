@@ -65,7 +65,7 @@ class Phone {
 }
 
 const code = (r) => r.data?.error?.code;
-const userId = (username) => db.prepare("SELECT id FROM users WHERE username = ?").get(username).id;
+const userId = async (username) => (await db.get("SELECT id FROM users WHERE username = ?", username)).id;
 const due = (days) => Date.now() + days * DAY;
 const task = (title, extra = {}) => ({ title, type: "assignment", subjectId: null, dueAt: due(3), effort: "M", ...extra });
 
@@ -95,7 +95,7 @@ const s1Recovery = r.data.recoveryCode;
 r = await s1.get("/api/me");
 check("account is a standard (non-stand) account", r.data.user?.accountType === "standard", r.data.user);
 check("starts on Freemium", r.data.access?.isPremium === false);
-check("stored password is hashed (scrypt), never plain text", /^scrypt\$/.test(db.prepare("SELECT password_hash FROM users WHERE username = ?").get(s1name).password_hash));
+check("stored password is hashed (scrypt), never plain text", /^scrypt\$/.test((await db.get("SELECT password_hash FROM users WHERE username = ?", s1name)).password_hash));
 r = await new Phone().post("/api/auth/register", { username: s1name.toUpperCase(), password: "Student2026", displayName: "Dup" });
 check("duplicate username rejected (case-insensitive)", r.status === 409 && code(r) === "USERNAME_TAKEN", r.data);
 await s1.patch("/api/profile", { onboarded: true });
@@ -147,11 +147,11 @@ await a1.post("/api/auth/logout");
 await a1.post("/api/auth/login", { username: ownerA.username, password: "OwnerA2026x" });
 r = await a1.post("/api/nfc/verify", proofA);
 check("tap after re-login: new NFC session, still no trial", r.data.newSession === true && r.data.trialGranted === false, r.data);
-const trials = db.prepare("SELECT COUNT(*) AS n FROM user_subscriptions WHERE user_id = ? AND source = 'trial'").get(userId(ownerA.username)).n;
+const trials = (await db.get("SELECT COUNT(*) AS n FROM user_subscriptions WHERE user_id = ? AND source = 'trial'", (await userId(ownerA.username)))).n;
 check("exactly one trial period in the database", trials === 1, trials);
 let dup = null;
 try {
-  db.prepare("INSERT INTO user_subscriptions (user_id, plan_code, source, starts_at, ends_at, created_at) VALUES (?, 'trial', 'trial', 1, 2, 1)").run(userId(ownerA.username));
+  (await db.run("INSERT INTO user_subscriptions (user_id, plan_code, source, starts_at, ends_at, created_at) VALUES (?, 'trial', 'trial', 1, 2, 1)", (await userId(ownerA.username))));
 } catch (e) {
   dup = e;
 }
@@ -251,8 +251,8 @@ r = await s1.patch("/api/profile", { avatarKey: "robot" });
 check("Premium avatar allowed while Premium", r.status === 200 && r.data.profile.avatarKey === "robot");
 const tasksBeforeExpiry = (await s1.get("/api/tasks?status=all")).data.items.length;
 // Expire Premium by moving every period into the past.
-const s1id = userId(s1name);
-db.prepare("UPDATE user_subscriptions SET starts_at = starts_at - 400 * 86400000, ends_at = ? WHERE user_id = ?").run(Date.now() - 1000, s1id);
+const s1id = (await userId(s1name));
+(await db.run("UPDATE user_subscriptions SET starts_at = starts_at - 400 * 86400000, ends_at = ? WHERE user_id = ?", Date.now() - 1000, s1id));
 r = await s1.get("/api/me");
 check("expired → back to Freemium immediately", r.data.access?.isPremium === false, r.data.access?.premium);
 r = await s1.get("/api/tasks?status=all");
@@ -278,8 +278,8 @@ check("'Premium has ended' notification created", r.data.items?.some((n) => n.ki
 group("10. Pomodoro session limits (Freemium stand owner)");
 r = await b1.post("/api/nfc/verify", proofB);
 check("owner B taps the stand (gets trial)", r.data.status === "verified" && r.data.trialGranted === true, r.data);
-const bId = userId(ownerB.username);
-db.prepare("UPDATE user_subscriptions SET starts_at = starts_at - 40 * 86400000, ends_at = ? WHERE user_id = ?").run(Date.now() - 1000, bId);
+const bId = (await userId(ownerB.username));
+(await db.run("UPDATE user_subscriptions SET starts_at = starts_at - 40 * 86400000, ends_at = ? WHERE user_id = ?", Date.now() - 1000, bId));
 r = await b1.get("/api/pomodoro/state");
 check("trial expired → Freemium limits apply", r.data.today?.limit === 4, r.data.today);
 r = await b1.post("/api/pomodoro/start", { preset: "50/10" });
@@ -312,24 +312,24 @@ r = await a2.get(`/api/tasks/${tA.id}`);
 check("task automatically moved to In Progress", r.data.task.storedStatus === "in_progress", r.data.task.storedStatus);
 r = await a2.post("/api/pomodoro/start", { preset: "25/5" });
 check("cannot start a second timer", r.status === 409 && code(r) === "SESSION_IN_PROGRESS");
-db.prepare("UPDATE pomodoro_sessions SET started_at = started_at - 600000 WHERE id = ?").run(focusId);
+(await db.run("UPDATE pomodoro_sessions SET started_at = started_at - 600000 WHERE id = ?", focusId));
 r = await a2.get("/api/pomodoro/state");
 const rem = r.data.live?.remainingMs;
 check("after '10 minutes' a fresh load shows ≈15:00 left", rem > 14.9 * 60_000 && rem <= 15 * 60_000, rem);
 r = await a2.post(`/api/pomodoro/${focusId}`, { action: "pause" });
 check("pause", r.data.live?.status === "paused");
 // Simulate 2 minutes spent paused: the whole timeline (start + pause start) moves back.
-db.prepare("UPDATE pomodoro_sessions SET started_at = started_at - 120000, paused_at = paused_at - 120000 WHERE id = ?").run(focusId);
+(await db.run("UPDATE pomodoro_sessions SET started_at = started_at - 120000, paused_at = paused_at - 120000 WHERE id = ?", focusId));
 r = await a2.post(`/api/pomodoro/${focusId}`, { action: "resume" });
 check("resume — paused time not counted", r.data.live?.status === "active" && Math.abs(r.data.live.remainingMs - rem) < 3000, r.data.live?.remainingMs);
-db.prepare("UPDATE pomodoro_sessions SET started_at = started_at - 960000 WHERE id = ?").run(focusId);
+(await db.run("UPDATE pomodoro_sessions SET started_at = started_at - 960000 WHERE id = ?", focusId));
 r = await a2.get("/api/pomodoro/state");
 check("timer ran out while closed → focus completed, break auto-started", r.data.live?.kind === "break" && r.data.live.remainingMs > 3 * 60_000 && r.data.live.remainingMs < 5 * 60_000, r.data.live);
 const breakId = r.data.live?.id;
 r = await a2.post(`/api/pomodoro/${breakId}`, { action: "extend" });
 check("Premium can extend a break by 5 min", r.data.live?.remainingMs > 8 * 60_000, r.data.live?.remainingMs);
 r = await a2.post(`/api/pomodoro/${breakId}`, { action: "pause" });
-db.prepare("UPDATE pomodoro_sessions SET paused_at = paused_at - 16 * 60000 WHERE id = ?").run(breakId);
+(await db.run("UPDATE pomodoro_sessions SET paused_at = paused_at - 16 * 60000 WHERE id = ?", breakId));
 r = await a2.get("/api/pomodoro/state");
 check("paused > 15 min → automatically ended", r.data.live === null && r.data.last?.endReason === "pause_timeout", r.data.last);
 r = await a2.get("/api/pomodoro/history");
@@ -341,7 +341,7 @@ check("focus minutes accumulated on the task", r.data.task.focusMinutes === 25 &
 
 // 13 ────────────────────────────────────────────────────────────────────────
 group("13. Access restrictions for non-stand users (even with Premium)");
-db.prepare("INSERT INTO user_subscriptions (user_id, plan_code, source, starts_at, ends_at, created_at) VALUES (?, 'monthly', 'admin', ?, ?, ?)").run(s1id, Date.now() - 1000, Date.now() + 30 * DAY, Date.now());
+(await db.run("INSERT INTO user_subscriptions (user_id, plan_code, source, starts_at, ends_at, created_at) VALUES (?, 'monthly', 'admin', ?, ?, ?)", s1id, Date.now() - 1000, Date.now() + 30 * DAY, Date.now()));
 r = await s1.get("/api/me");
 check("standard user is Premium again", r.data.access?.isPremium === true);
 check("…but stand features stay off", !r.data.access.features.pomodoro && !r.data.access.features.checkin && !r.data.access.features.moodHistory);
@@ -375,7 +375,7 @@ group("15. Summary statistics accuracy");
 await a2.post(`/api/tasks/${tA.id}/status`, { status: "completed" });
 r = await a2.get("/api/summary?range=week");
 const sum = r.data;
-const dbFocus = db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(focused_seconds),0) AS s FROM pomodoro_sessions WHERE user_id = ? AND kind='focus' AND status='completed'").get(userId(ownerA.username));
+const dbFocus = (await db.get("SELECT COUNT(*) AS n, COALESCE(SUM(focused_seconds),0) AS s FROM pomodoro_sessions WHERE user_id = ? AND kind='focus' AND status='completed'", (await userId(ownerA.username))));
 check("focus sessions match the database", sum.overview?.focusSessions === dbFocus.n, { api: sum.overview?.focusSessions, db: dbFocus.n });
 check("focus minutes match the database", sum.overview?.focusMinutes === Math.round(dbFocus.s / 60), { api: sum.overview?.focusMinutes, db: dbFocus.s / 60 });
 check("tasks completed this week = 1", sum.overview?.tasksCompleted === 1, sum.overview);
@@ -415,7 +415,7 @@ const csvTask = (await a2.post("/api/tasks", task("=HYPERLINK(\"http://x\")"))).
 r = await a2.get(`/api/export?kind=tasks&format=csv&from=${yearAgo}&to=${today}`);
 check("CSV formula injection neutralised", String(r.data).includes(`"'=HYPERLINK(""http://x"")"`), String(r.data).split("\n").find((l) => l.includes("HYPERLINK")));
 await a2.del(`/api/tasks/${csvTask.id}`);
-check("export requests are logged", db.prepare("SELECT COUNT(*) AS n FROM export_requests WHERE user_id = ?").get(userId(ownerA.username)).n >= 5);
+check("export requests are logged", (await db.get("SELECT COUNT(*) AS n FROM export_requests WHERE user_id = ?", (await userId(ownerA.username)))).n >= 5);
 
 // 17 ────────────────────────────────────────────────────────────────────────
 group("17. Unsupported laptop and tablet access");

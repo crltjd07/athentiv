@@ -11,6 +11,6 @@ export const POST = route<Ctx>(async (req, ctx) => {
   const auth = await requireAuth();
   const id = idParam((await ctx.params).id);
   const { action } = await readJson(req, pomodoroActionSchema);
-  sessionAction(auth, id, action);
-  return ok({ ...pomodoroState(auth), nfc: nfcOf(auth.session, auth.now) });
+  await sessionAction(auth, id, action);
+  return ok({ ...(await pomodoroState(auth)), nfc: nfcOf(auth.session, auth.now) });
 });

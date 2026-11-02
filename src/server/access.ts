@@ -12,14 +12,14 @@ export type PremiumState = {
   lastEndedAt: number | null;
 };
 
-export function premiumOf(userId: number, now = Date.now()): PremiumState {
-  const rows = all<{ source: PremiumState["source"]; starts_at: number; ends_at: number }>(
+export async function premiumOf(userId: number, now = Date.now()): Promise<PremiumState> {
+  const rows = await all<{ source: PremiumState["source"]; starts_at: number; ends_at: number }>(
     "SELECT source, starts_at, ends_at FROM user_subscriptions WHERE user_id = ? AND ends_at > ? ORDER BY starts_at",
     userId, now,
   );
   const current = rows.find((r) => r.starts_at <= now);
   if (!current) {
-    const last = one<{ ends_at: number }>(
+    const last = await one<{ ends_at: number | null }>(
       "SELECT MAX(ends_at) AS ends_at FROM user_subscriptions WHERE user_id = ? AND ends_at <= ?",
       userId, now,
     );
@@ -31,9 +31,13 @@ export function premiumOf(userId: number, now = Date.now()): PremiumState {
   return { active: true, until, source: current.source, daysLeft: Math.ceil((until - now) / TIME.DAY), lastEndedAt: null };
 }
 
+export async function isPremium(userId: number, now = Date.now()) {
+  return (await premiumOf(userId, now)).active;
+}
+
 /** The moment a newly bought / granted period should start: now, or the end of the current chain. */
-export function nextPeriodStart(userId: number, now = Date.now()): number {
-  const p = premiumOf(userId, now);
+export async function nextPeriodStart(userId: number, now = Date.now()): Promise<number> {
+  const p = await premiumOf(userId, now);
   return p.active && p.until ? p.until : now;
 }
 
@@ -47,8 +51,8 @@ export function nfcOf(session: SessionRow, now = Date.now()) {
   };
 }
 
-export function accessFor(auth: Auth) {
-  const premium = premiumOf(auth.user.id, auth.now);
+export async function accessFor(auth: Auth) {
+  const premium = await premiumOf(auth.user.id, auth.now);
   const standOwner = auth.user.account_type === "stand_owner";
   const nfc = standOwner ? nfcOf(auth.session, auth.now) : { verified: false, verifiedAt: null, until: null, standId: null };
   const isPremium = premium.active;
@@ -80,7 +84,7 @@ export function accessFor(auth: Auth) {
     },
   };
 }
-export type Access = ReturnType<typeof accessFor>;
+export type Access = Awaited<ReturnType<typeof accessFor>>;
 
 export function requireStandOwner(auth: Auth) {
   if (auth.user.account_type !== "stand_owner") {
@@ -98,8 +102,8 @@ export function requireNfc(auth: Auth) {
   }
 }
 
-export function requirePremium(auth: Auth, feature: string) {
-  if (!premiumOf(auth.user.id, auth.now).active) {
+export async function requirePremium(auth: Auth, feature: string) {
+  if (!(await isPremium(auth.user.id, auth.now))) {
     throw err.forbidden("PREMIUM_REQUIRED", `${feature} is a Premium feature.`, { feature });
   }
 }

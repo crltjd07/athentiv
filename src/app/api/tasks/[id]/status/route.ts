@@ -11,8 +11,8 @@ export const POST = route<Ctx>(async (req, ctx) => {
   const auth = await requireAuth();
   const id = idParam((await ctx.params).id);
   const { status } = await readJson(req, taskStatusSchema);
-  const task = tx(() => {
-    changeStatus(auth, getOwnedTask(auth, id), status, "user");
+  const task = await tx(async () => {
+    await changeStatus(auth, await getOwnedTask(auth, id), status, "user");
     return getOwnedTask(auth, id);
   });
   return ok({ task: serializeTask(task, Date.now()) });

@@ -7,6 +7,6 @@ import { pomodoroStartSchema } from "@/shared/schemas";
 export const POST = route(async (req) => {
   const auth = await requireAuth();
   const input = await readJson(req, pomodoroStartSchema);
-  startFocus(auth, input);
-  return ok({ ...pomodoroState(auth), nfc: nfcOf(auth.session, auth.now) }, { status: 201 });
+  await startFocus(auth, input);
+  return ok({ ...(await pomodoroState(auth)), nfc: nfcOf(auth.session, auth.now) }, { status: 201 });
 });

@@ -14,6 +14,6 @@ export const POST = route(async (req) => {
     throw new ApiError(400, "WRONG_PASSWORD", "Incorrect password.", { fields: { password: "Incorrect password." } });
   }
   const code = recoveryCode();
-  run("UPDATE users SET recovery_code_hash = ?, updated_at = ? WHERE id = ?", hashRecoveryCode(code), Date.now(), auth.user.id);
+  await run("UPDATE users SET recovery_code_hash = ?, updated_at = ? WHERE id = ?", hashRecoveryCode(code), Date.now(), auth.user.id);
   return ok({ recoveryCode: code });
 });
