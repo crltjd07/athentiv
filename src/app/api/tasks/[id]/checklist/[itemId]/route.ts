@@ -1,13 +1,13 @@
 import { one, run } from "@/server/db";
 import { err, idParam, ok, readJson, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { getOwnedTask } from "@/server/tasks";
 import { checklistPatchSchema } from "@/shared/schemas";
 
 type Ctx = { params: Promise<{ id: string; itemId: string }> };
 
 async function ownedItem(ctx: Ctx) {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const p = await ctx.params;
   const task = await getOwnedTask(auth, idParam(p.id));
   const itemId = idParam(p.itemId);

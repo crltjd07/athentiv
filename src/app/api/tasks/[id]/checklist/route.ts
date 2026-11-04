@@ -1,6 +1,6 @@
 import { one, run } from "@/server/db";
 import { err, idParam, ok, readJson, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { getOwnedTask } from "@/server/tasks";
 import { checklistItemSchema } from "@/shared/schemas";
 import { LIMITS } from "@/shared/limits";
@@ -8,7 +8,7 @@ import { LIMITS } from "@/shared/limits";
 type Ctx = { params: Promise<{ id: string }> };
 
 export const POST = route<Ctx>(async (req, ctx) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const task = await getOwnedTask(auth, idParam((await ctx.params).id));
   const { label } = await readJson(req, checklistItemSchema);
   const stats = (await one<{ n: number; max: number | null }>("SELECT COUNT(*) AS n, MAX(sort_order) AS max FROM task_checklist_items WHERE task_id = ?", task.id))!;

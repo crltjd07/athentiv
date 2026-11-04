@@ -46,6 +46,13 @@ export default function PremiumPage() {
   const [plan, setPlan] = useState("monthly");
   const [busy, setBusy] = useState(false);
   const stand = me.access.standOwner;
+  // Accounts without a stand have no free tier: a plan is required to use the app.
+  const required = me.access.subscriptionRequired;
+
+  async function signOut() {
+    await api("/api/auth/logout", { body: {} }).catch(() => {});
+    router.replace("/welcome");
+  }
 
   async function checkout() {
     setBusy(true);
@@ -62,7 +69,7 @@ export default function PremiumPage() {
 
   return (
     <main className="mx-auto max-w-[480px] px-4">
-      <PageHeader title="Premium" back />
+      <PageHeader title="Premium" back={required ? undefined : true} />
       <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-brand-700 to-brand-900 p-5 text-white shadow-[var(--shadow-float)]">
         <div className="absolute -top-8 -right-8 size-32 rounded-full bg-white/10" />
         <div className="flex items-center gap-2 text-xs font-bold tracking-[0.2em] text-brand-200">ATHENTIV</div>
@@ -79,7 +86,11 @@ export default function PremiumPage() {
           </div>
         ) : (
           <p className="mt-2 text-sm text-brand-100">
-            You&apos;re on Freemium{data.premium.lastEndedAt ? ` · Premium ended ${fmtDate(data.premium.lastEndedAt)}` : ""}. Your tasks and history are always kept.
+            {stand
+              ? `You're on Freemium${data.premium.lastEndedAt ? ` since ${fmtDate(data.premium.lastEndedAt)}` : ""}. Your tasks and history are always kept.`
+              : data.premium.lastEndedAt
+                ? `Your plan ended on ${fmtDate(data.premium.lastEndedAt)}. Choose a plan to continue. Your tasks and history are kept.`
+                : "Choose a plan to start using ATHENTIV FocusDock."}
           </p>
         )}
       </div>
@@ -97,7 +108,7 @@ export default function PremiumPage() {
 
       <div className="mt-4">
         <Notice tone="warn" icon={<FlaskConical className="size-4" />}>
-          <b>Test mode.</b> Payments run in a sandbox — no real money is charged. Prices are ATHENTIV&apos;s proposed launch prices for the Philippine student market.
+          <b>Test mode.</b> No real money is charged. Prices shown are proposed launch prices.
         </Notice>
       </div>
 
@@ -130,11 +141,13 @@ export default function PremiumPage() {
             {data.premium.active ? "Extend with this plan" : "Continue to checkout"}
           </Button>
           <p className="px-2 text-center text-xs text-muted">
-            {data.premium.active ? "Buying now adds time after your current expiry date — nothing is lost." : "Plans don't auto-renew in test mode. You'll get a reminder before Premium ends."}
+            {data.premium.active ? "Buying now adds time after your current plan ends." : "Plans don't renew automatically. You'll get a reminder before your plan ends."}
           </p>
         </div>
       )}
 
+      {stand ? (
+        <>
       <SectionTitle>Freemium vs Premium</SectionTitle>
       <Card className="overflow-hidden">
         <div className="grid grid-cols-[1fr_76px_88px] bg-slate-50 px-4 py-2.5 text-xs font-bold text-muted">
@@ -150,10 +163,21 @@ export default function PremiumPage() {
           </div>
         ))}
       </Card>
-      {!stand && (
-        <p className="mt-3 px-1 text-xs text-muted">
-          Focus sessions (Pomodoro), mood check-ins and stand features need an ATHENTIV FocusDock phone stand. Premium alone doesn&apos;t unlock them.
-        </p>
+        </>
+      ) : (
+        <>
+          <SectionTitle>What your plan includes</SectionTitle>
+          <Card className="divide-y divide-line">
+            {ROWS.filter((r) => !r.standOnly).map((r) => (
+              <div key={r.label} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
+                <Check className="size-4 shrink-0 text-green-600" strokeWidth={3} />
+                <span className="flex-1 text-ink">{r.label}</span>
+                {typeof r.premium === "string" && <span className="text-xs font-semibold text-brand-700">{r.premium}</span>}
+              </div>
+            ))}
+          </Card>
+          <p className="mt-3 px-1 text-xs text-muted">Focus sessions and mood check-ins need a FocusDock stand.</p>
+        </>
       )}
 
       {data && data.transactions.length > 0 && (
@@ -177,6 +201,11 @@ export default function PremiumPage() {
             ))}
           </Card>
         </>
+      )}
+      {required && (
+        <button onClick={signOut} className="mx-auto mt-6 block text-sm font-semibold text-muted">
+          Sign out
+        </button>
       )}
     </main>
   );

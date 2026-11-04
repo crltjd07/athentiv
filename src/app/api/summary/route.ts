@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { err, ok, readQuery, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { isPremium } from "@/server/access";
 import { summary } from "@/server/stats";
 import { isDayString } from "@/shared/day";
@@ -9,7 +9,7 @@ const day = z.string().refine(isDayString, "Use YYYY-MM-DD.");
 const schema = z.object({ range: z.enum(["week", "month", "custom"]).default("week"), from: day.optional(), to: day.optional() });
 
 export const GET = route(async (req) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const q = readQuery(req, schema);
   if (q.range !== "week" && !(await isPremium(auth.user.id, auth.now))) {
     throw err.forbidden("PREMIUM_REQUIRED", "Monthly and custom-range reports are Premium features.", { feature: "Detailed analytics" });

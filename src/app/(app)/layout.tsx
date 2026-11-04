@@ -10,7 +10,10 @@ import { LoadingScreen, OfflineBanner } from "@/components/SystemScreens";
 import { ErrorState } from "@/components/ui";
 import { TIMING } from "@/shared/limits";
 
-const TAB_ROOTS = ["/home", "/tasks", "/focus", "/calendar", "/summary", "/profile", "/subjects", "/notifications", "/mood", "/stand", "/settings", "/premium"];
+const TAB_ROOTS = ["/home", "/tasks", "/focus", "/calendar", "/summary", "/profile", "/subjects", "/notifications", "/mood", "/stand", "/settings", "/premium", "/about"];
+// Accounts without a stand need an active Premium plan; until then only these screens are open.
+const LOCKED_ALLOWED = ["/premium", "/settings", "/about", "/profile"];
+const isUnder = (path: string, roots: string[]) => roots.some((r) => path === r || path.startsWith(r + "/"));
 const NO_NAV = ["/focus/session", "/onboarding", "/checkin", "/premium/checkout", "/tasks/new"];
 
 type Heartbeat = { nfc: Me["access"]["nfc"]; premium: { active: boolean; until: number | null }; unreadNotifications: number };
@@ -46,11 +49,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  // First run (and premade stand accounts that must change their password) go through onboarding.
+  const locked = !!me?.access.subscriptionRequired;
+  const lockedOut = locked && !isUnder(path, LOCKED_ALLOWED);
+
+  // Accounts without a stand go to the Premium page until they subscribe. Everyone else goes
+  // through onboarding on first run (and premade stand accounts must change their password).
   useEffect(() => {
     if (!me) return;
-    if ((!me.profile.onboarded || me.user.mustChangePassword) && path !== "/onboarding") router.replace("/onboarding");
-  }, [me, path, router]);
+    if (lockedOut) {
+      router.replace("/premium");
+      return;
+    }
+    if (!locked && (!me.profile.onboarded || me.user.mustChangePassword) && path !== "/onboarding") router.replace("/onboarding");
+  }, [me, path, router, locked, lockedOut]);
 
   // Heartbeat: keeps the session and NFC verification alive, and picks up expiry immediately.
   useEffect(() => {
@@ -99,9 +110,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </main>
     );
   }
-  if (!me) return <LoadingScreen />;
+  if (!me || lockedOut) return <LoadingScreen />;
 
-  const showNav = TAB_ROOTS.some((r) => path === r || path.startsWith(r + "/")) && !NO_NAV.some((r) => path.startsWith(r)) && !/^\/tasks\/\d+\/edit/.test(path);
+  const showNav = !locked && TAB_ROOTS.some((r) => path === r || path.startsWith(r + "/")) && !NO_NAV.some((r) => path.startsWith(r)) && !/^\/tasks\/\d+\/edit/.test(path);
 
   return (
     <MeContext.Provider value={{ me, refresh }}>

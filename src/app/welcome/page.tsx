@@ -9,7 +9,7 @@ import { PhoneOnStand } from "@/components/Illustrations";
 import { ButtonLink } from "@/components/ui";
 
 const POINTS = [
-  { icon: CalendarClock, title: "Every deadline in one place", body: "Add an assignment in seconds — even by voice." },
+  { icon: CalendarClock, title: "Every deadline in one place", body: "Add an assignment in seconds, even by voice." },
   { icon: Timer, title: "Focus sessions on your stand", body: "Dock your phone, tap NFC, and start a Pomodoro." },
   { icon: ChartColumn, title: "See your progress", body: "Weekly insights built from what you actually did." },
 ];
@@ -46,7 +46,7 @@ function Welcome() {
       </ul>
       <div className="mt-auto space-y-2.5 pt-8">
         <ButtonLink href={`/register${q}`} full size="lg">
-          Create a free account
+          Create an account
         </ButtonLink>
         <ButtonLink href={`/login${q}`} full size="lg" variant="secondary">
           Sign in

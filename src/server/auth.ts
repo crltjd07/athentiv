@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { all, one, run, tx } from "./db";
 import { randomToken, sha256 } from "./crypto";
 import { err } from "./http";
+import { requireActivePlan } from "./access";
 import { TIMING } from "@/shared/limits";
 import { isValidTimeZone } from "@/shared/day";
 
@@ -84,6 +85,13 @@ export async function requireAuth(): Promise<Auth> {
     throw err.unauthenticated("SESSION_REPLACED", "You signed in on another device, so this session was ended.");
   if (r.reason === "expired") throw err.unauthenticated("SESSION_EXPIRED", "Your session has expired. Please sign in again.");
   throw err.unauthenticated();
+}
+
+/** Signed-in user who may use the app's features (non-stand accounts need an active plan). */
+export async function requireMember(): Promise<Auth> {
+  const auth = await requireAuth();
+  await requireActivePlan(auth);
+  return auth;
 }
 
 function deviceLabel(ua: string): string {

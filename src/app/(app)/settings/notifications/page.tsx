@@ -38,7 +38,7 @@ export default function NotificationPrefs() {
 
   return (
     <main className="mx-auto max-w-[480px] px-4">
-      <PageHeader title="Notifications" back="/profile" />
+      <PageHeader title="Notification Preferences" back="/profile" />
       {!data ? (
         <PageSkeleton />
       ) : (
@@ -69,7 +69,7 @@ export default function NotificationPrefs() {
                   <span className="flex-1">
                     <span className="block text-[15px] font-medium text-ink">Phone notifications</span>
                     <span className="block text-xs text-muted">
-                      {perm === "granted" ? "Allowed — shown when the app is in the background." : perm === "denied" ? "Blocked in your browser settings." : perm === "unsupported" ? "Not supported by this browser." : "Get an alert when a session ends."}
+                      {perm === "granted" ? "Allowed. Shown when the app is in the background." : perm === "denied" ? "Blocked in your browser settings." : perm === "unsupported" ? "Not supported by this browser." : "Get an alert when a session ends."}
                     </span>
                   </span>
                   {perm === "default" && (
@@ -81,7 +81,7 @@ export default function NotificationPrefs() {
               </Card>
             </>
           )}
-          <p className="mt-4 px-1 text-xs text-muted">Reminders appear in your FocusDock inbox. Push notifications to a closed app aren&apos;t available on the web yet.</p>
+          <p className="mt-4 px-1 text-xs text-muted">Reminders appear in your Notifications inbox.</p>
         </>
       )}
     </main>

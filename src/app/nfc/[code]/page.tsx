@@ -125,7 +125,7 @@ export default function NfcLanding() {
           <Button type="submit" full size="lg" loading={loading} disabled={!password}>
             Sign in & verify stand
           </Button>
-          <p className="text-center text-xs text-muted">Signing in here ends the session on any other phone — each stand account is active on one device at a time.</p>
+          <p className="text-center text-xs text-muted">Signing in here signs out any other phone using this account.</p>
         </form>
       </AuthScaffold>
     );
@@ -142,7 +142,7 @@ export default function NfcLanding() {
             </div>
             <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-ink">Your 30-day Premium trial has started!</h1>
             <p className="mt-2 max-w-xs text-sm text-muted">
-              Thanks for docking for the first time. Every Premium feature is unlocked for 30 days — the trial is a one-time gift for stand owners.
+              Every Premium feature is free for the next 30 days. This trial is given once per account.
             </p>
             <Button size="lg" className="mt-8 w-full max-w-xs" onClick={() => router.replace(nextRoute(state))}>
               Let&apos;s go

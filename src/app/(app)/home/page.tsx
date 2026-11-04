@@ -37,7 +37,7 @@ export default function Home() {
   async function toggle(t: Task) {
     try {
       await api(`/api/tasks/${t.id}/status`, { body: { status: t.status === "completed" ? "pending" : "completed" } });
-      if (t.status !== "completed") toast("Nice work — task completed! 🎉");
+      if (t.status !== "completed") toast("Task completed. Nice work! 🎉");
       await reload();
     } catch (e) {
       onError(e);
@@ -246,7 +246,7 @@ export default function Home() {
           )}
           {data.overdueCount > 0 && (
             <Link href="/tasks?status=overdue" className="mt-3 block rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-              {data.overdueCount} overdue task{data.overdueCount === 1 ? "" : "s"} — review now →
+              {data.overdueCount} overdue task{data.overdueCount === 1 ? "" : "s"}. Review now →
             </Link>
           )}
         </>

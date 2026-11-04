@@ -105,7 +105,7 @@ function CheckIn() {
           ) : result.historyLocked ? (
             <LockedCard className="mt-3 text-left" title="Mood history & trends" body="See your check-in history, mood calendar and how your mood relates to your focus time." feature="Mood history" />
           ) : null}
-          <p className="mt-4 text-[11px] text-faint">Check-ins are for personal reflection, not a medical assessment. If you&apos;re struggling, please talk to someone you trust or your school&apos;s guidance office.</p>
+          <p className="mt-4 text-[11px] text-faint">If you&apos;re having a hard time, talk to someone you trust or your school&apos;s guidance office.</p>
         </div>
         <div className="space-y-2 pt-6">
           <ButtonLink href="/focus" full size="lg" icon={<ArrowRight className="size-5" />}>

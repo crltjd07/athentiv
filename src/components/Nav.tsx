@@ -40,7 +40,7 @@ export function BottomNav({ standOwner }: { standOwner: boolean }) {
 export function PageHeader({ title, back, action, subtitle }: { title: ReactNode; back?: string | true; action?: ReactNode; subtitle?: ReactNode }) {
   const router = useRouter();
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-2 bg-canvas/90 px-2 pt-safe backdrop-blur">
+    <header className="sticky top-0 z-20 -mx-4 mb-2 bg-canvas px-2 pt-safe">
       <div className="flex h-12 items-center">
         <div className="w-11">
           {back &&

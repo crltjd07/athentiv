@@ -43,13 +43,18 @@ function totals(days: Daily[]) {
   );
 }
 
+/**
+ * Tasks that belong to a period: due in it, or completed in it. Using the same set for the
+ * completion rate and the subject breakdown keeps them consistent with "tasks completed".
+ */
 async function dueStats(userId: number, start: number, end: number, now: number) {
   const r = (await one<{ due: number; done: number; missed: number }>(
     `SELECT COUNT(*) AS due,
             COALESCE(SUM(status = 'completed'), 0) AS done,
-            COALESCE(SUM((status = 'completed' AND completed_at > due_at) OR (status != 'completed' AND due_at < ?)), 0) AS missed
-       FROM tasks WHERE user_id = ? AND due_at >= ? AND due_at < ?`,
-    now, userId, start, end,
+            COALESCE(SUM(due_at >= ? AND due_at < ? AND ((status = 'completed' AND completed_at > due_at) OR (status != 'completed' AND due_at < ?))), 0) AS missed
+       FROM tasks
+      WHERE user_id = ? AND ((due_at >= ? AND due_at < ?) OR (completed_at >= ? AND completed_at < ?))`,
+    start, end, now, userId, start, end, start, end,
   ))!;
   return { due: r.due, done: r.done, missed: r.missed, completionRate: r.due ? Math.round((r.done / r.due) * 100) : null };
 }
@@ -160,9 +165,9 @@ export async function summary(auth: Auth, input: RangeInput) {
               SUM(t.status != 'completed') AS open_,
               SUM(t.status != 'completed' AND t.due_at < ?) AS overdue
          FROM tasks t LEFT JOIN subjects s ON s.id = t.subject_id
-        WHERE t.user_id = ? AND (t.due_at >= ? AND t.due_at < ? OR t.status != 'completed')
+        WHERE t.user_id = ? AND ((t.due_at >= ? AND t.due_at < ?) OR (t.completed_at >= ? AND t.completed_at < ?) OR t.status != 'completed')
         GROUP BY s.id ORDER BY total DESC`,
-      now, user.id, start, end,
+      now, user.id, start, end, start, end,
     )).map((r) => ({ subjectId: r.subject_id, name: r.name ?? "No subject", color: r.color ?? "#94A3B8", total: r.total, completed: r.completed, open: r.open_, overdue: r.overdue }));
 
     result.typeDistribution = (await all<{ type: string; n: number }>(
@@ -173,7 +178,8 @@ export async function summary(auth: Auth, input: RangeInput) {
     if (access.features.moodHistory) result.mood = await moodInsights(user.id, tz, range.from, range.to, daily);
   }
 
-  result.insights = buildInsights(result, access.standOwner, range.label.toLowerCase());
+  const period = range.label === "This week" ? "this week" : range.label === "This month" ? "this month" : "in this period";
+  result.insights = buildInsights(result, access.standOwner, period);
   return result;
 }
 type Summary = Awaited<ReturnType<typeof summary>>;
@@ -238,7 +244,7 @@ function buildInsights(s: Summary, standOwner: boolean, period: string): string[
   if (s.mood && s.mood.byMood.length >= 2) {
     const ranked = s.mood.byMood.filter((m) => m.avgFocusMinutes !== null).sort((a, b) => b.avgFocusMinutes! - a.avgFocusMinutes!);
     if (ranked.length >= 2 && ranked[0].avgFocusMinutes! > ranked[ranked.length - 1].avgFocusMinutes!) {
-      out.push(`On days you checked in feeling ${ranked[0].label.toLowerCase()}, you focused ${ranked[0].avgFocusMinutes} min on average — your highest.`);
+      out.push(`On days you checked in feeling ${ranked[0].label.toLowerCase()}, you focused ${ranked[0].avgFocusMinutes} min on average, your highest.`);
     }
   }
   if (s.streak.current >= 2) out.push(`You're on a ${s.streak.current}-day study streak.`);
@@ -326,6 +332,6 @@ function recommendations(standOwner: boolean, open: ReturnType<typeof serializeT
   const bySubject = new Map<string, number>();
   for (const t of open) if (t.subject) bySubject.set(t.subject.name, (bySubject.get(t.subject.name) ?? 0) + 1);
   const busiest = [...bySubject.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (busiest && busiest[1] >= 2) recs.push({ id: "subject", text: `${busiest[0]} has ${busiest[1]} unfinished tasks — it's your busiest subject right now.`, action: { label: "View tasks", href: "/tasks" } });
+  if (busiest && busiest[1] >= 2) recs.push({ id: "subject", text: `${busiest[0]} has ${busiest[1]} unfinished tasks, more than any other subject.`, action: { label: "View tasks", href: "/tasks" } });
   return recs.slice(0, 3);
 }

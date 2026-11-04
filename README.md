@@ -7,7 +7,7 @@ A mobile-only student productivity web app by **ATHENTIV**. It combines academic
 | [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md) | **Go live:** git push → Turso → Vercel → create a stand → sign in on a phone |
 | [docs/ACCESS-RULES.md](docs/ACCESS-RULES.md) | Account types, NFC/session rules, feature matrix, **assumptions made** |
 | [docs/SUBSCRIPTION.md](docs/SUBSCRIPTION.md) | Proposed PHP pricing, billing architecture, sandbox mode |
-| [docs/TESTING.md](docs/TESTING.md) | Automated suite (18 scenarios, 153 checks) + manual phone checklist |
+| [docs/TESTING.md](docs/TESTING.md) | Automated suite (18 scenarios, 165 checks) + manual phone checklist |
 | [docs/RECOMMENDATIONS.md](docs/RECOMMENDATIONS.md) | Post-implementation recommendations and spec gaps |
 
 ## Stack
@@ -76,7 +76,7 @@ DATABASE_PATH=data/test.db RATE_LIMITS=off pnpm dev -p 3100
 DATABASE_PATH=data/test.db BASE_URL=http://localhost:3100 pnpm test:api
 ```
 
-The latest run gave **153 passed, 0 failed**. See [docs/TESTING.md](docs/TESTING.md).
+The latest run gave **165 passed, 0 failed**. See [docs/TESTING.md](docs/TESTING.md).
 
 ## Deployment
 
@@ -92,7 +92,7 @@ The latest run gave **153 passed, 0 failed**. See [docs/TESTING.md](docs/TESTING
 
 | Integration | Status |
 |---|---|
-| Database | **Working locally** (153/153 end-to-end checks on a libSQL file database). Live Turso connection uses the same client but was **not tested here** (needs your Turso account) |
+| Database | **Working locally** (165/165 end-to-end checks on a libSQL file database). Live Turso connection uses the same client but was **not tested here** (needs your Turso account) |
 | NFC | **Working** via tag URL (tested through the API). Web NFC in-app scan written for Android Chrome but **not tested on a physical phone** |
 | Payments | **Sandbox only**, clearly labelled. No gateway (for example PayMongo) is connected, and no real money can move |
 | Spotify | **Link + official embed player.** No OAuth/Web Playback SDK, because Spotify restricts in-browser playback (see RECOMMENDATIONS) |

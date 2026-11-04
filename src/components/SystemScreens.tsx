@@ -63,7 +63,7 @@ export function OfflineBanner() {
   return (
     <div className="fixed inset-x-0 top-0 z-[55] flex justify-center px-4 pt-safe">
       <div className="flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white shadow-lg">
-        <WifiOff className="size-4" /> You&apos;re offline — changes will fail until you reconnect.
+        <WifiOff className="size-4" /> You&apos;re offline. Changes won&apos;t save until you reconnect.
       </div>
     </div>
   );
@@ -113,7 +113,7 @@ export function NfcRequired({ onScan, scanning, scanSupported }: { onScan?: () =
       <PhoneOnStand className="h-44 w-auto" />
       <h2 className="mt-4 text-xl font-extrabold tracking-tight text-ink">Tap your FocusDock stand</h2>
       <p className="mt-2 max-w-xs text-sm text-muted">
-        Hold the top of your phone against the NFC tag on your stand. Your browser will open a FocusDock link that verifies this session.
+        Hold your phone against the NFC tag on your stand to unlock Focus and Check-in.
       </p>
       {scanSupported && onScan && (
         <button
@@ -126,7 +126,7 @@ export function NfcRequired({ onScan, scanning, scanSupported }: { onScan?: () =
         </button>
       )}
       <p className="mt-4 text-xs text-faint">
-        Not tapping? Make sure NFC is turned on in your phone settings.{" "}
+        Not working? Turn on NFC in your phone settings.{" "}
         <Link href="/stand" className="font-semibold text-brand-600">
           Stand help
         </Link>

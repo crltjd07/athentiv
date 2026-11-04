@@ -1,21 +1,21 @@
 import { z } from "zod";
 import { all } from "@/server/db";
 import { ok, rateLimit, readQuery, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { buildExport } from "@/server/exports";
 import { isDayString } from "@/shared/day";
 
 const day = z.string().refine(isDayString, "Use YYYY-MM-DD.");
 const schema = z.object({
   kind: z.enum(["tasks", "pomodoro", "stats", "mood", "full"]),
-  format: z.enum(["csv", "pdf", "json"]),
+  format: z.enum(["csv", "pdf"]),
   from: day,
   to: day,
 });
 
 /** Streams the export as a download. Premium-only; mood requires a Premium stand owner. */
 export const GET = route(async (req) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   if (req.nextUrl.searchParams.get("history") === "1") {
     const items = (await all<{ id: number; kind: string; format: string; range_start: number; range_end: number; status: string; row_count: number | null; created_at: number }>(
       "SELECT * FROM export_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 15", auth.user.id,

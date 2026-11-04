@@ -60,9 +60,10 @@ export const TASK_TYPE_KEYS = TASK_TYPES.map((t) => t.key) as [TaskType, ...Task
 export const taskTypeLabel = (key: string) => TASK_TYPES.find((t) => t.key === key)?.label ?? "Other";
 
 export const EFFORTS = [
-  { key: "S", label: "Small", hint: "< 1 hour", color: "#15803D", bg: "#DCFCE7" },
-  { key: "M", label: "Medium", hint: "1–3 hours", color: "#B45309", bg: "#FEF3C7" },
-  { key: "L", label: "Large", hint: "> 3 hours", color: "#BE123C", bg: "#FFE4E6" },
+  // Stored keys stay S/M/L so existing tasks keep their effort; only the labels changed.
+  { key: "S", label: "Light", hint: "Under 1 hour", color: "#15803D", bg: "#DCFCE7" },
+  { key: "M", label: "Moderate", hint: "1 to 3 hours", color: "#B45309", bg: "#FEF3C7" },
+  { key: "L", label: "Heavy", hint: "Over 3 hours", color: "#BE123C", bg: "#FFE4E6" },
 ] as const;
 export type Effort = (typeof EFFORTS)[number]["key"];
 export const EFFORT_KEYS = ["S", "M", "L"] as [Effort, ...Effort[]];
@@ -130,7 +131,7 @@ export const BREAK_ACTIVITIES = [
   "Stand up and walk around for a minute.",
   "Take five slow, deep breaths.",
   "Tidy one small thing on your desk.",
-  "Rest your eyes — close them for a moment.",
+  "Close your eyes and rest them for a moment.",
 ];
 
 export const PLAN_COPY: Record<string, { tagline: string; badge?: string }> = {

@@ -95,7 +95,7 @@ export default function SummaryPage() {
             {stand && <StatTile label="Focus time" value={fmtMinutes(o.focusMinutes)} icon={<Clock className="size-4" />} sub={<Delta cur={o.focusMinutes} prev={data.previous?.overview.focusMinutes} />} />}
             {stand && <StatTile label="Focus sessions" value={o.focusSessions} icon={<Target className="size-4" />} sub={<Delta cur={o.focusSessions} prev={data.previous?.overview.focusSessions} />} />}
             <StatTile label="Tasks completed" value={o.tasksCompleted} icon={<CircleCheck className="size-4" />} tone="green" sub={<Delta cur={o.tasksCompleted} prev={data.previous?.overview.tasksCompleted} />} />
-            <StatTile label="Completion rate" value={o.completionRate === null ? "—" : `${o.completionRate}%`} icon={<TrendingUp className="size-4" />} sub={o.dueInRange ? `${o.dueInRange} due in range` : "No deadlines in range"} />
+            <StatTile label="Completion rate" value={o.completionRate === null ? "None" : `${o.completionRate}%`} icon={<TrendingUp className="size-4" />} sub={o.dueInRange ? `of ${o.dueInRange} task${o.dueInRange === 1 ? "" : "s"} in this period` : "No tasks in this period"} />
             <StatTile label="Pending" value={o.pendingTasks} icon={<Hourglass className="size-4" />} tone="amber" sub="open, not yet due" />
             <StatTile label="Overdue" value={o.overdueTasks} icon={<TriangleAlert className="size-4" />} tone="red" sub={o.missedDeadlines ? `${o.missedDeadlines} missed in range` : "right now"} />
           </div>

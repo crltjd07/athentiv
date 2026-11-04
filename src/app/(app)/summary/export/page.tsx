@@ -1,25 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileJson, FileSpreadsheet, FileText } from "lucide-react";
+import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useApi } from "@/lib/useApi";
 import { useMe } from "@/lib/me";
 import { fmtDateTime, localDayKey } from "@/lib/format";
 import { PageHeader } from "@/components/Nav";
 import { LockedCard } from "@/components/Premium";
-import { Card, Chip, Input, Label, Notice, SectionTitle, cx } from "@/components/ui";
+import { Button, Card, Chip, Input, Label, SectionTitle, cx } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 
 type Kind = "tasks" | "pomodoro" | "stats" | "mood" | "full";
-type Format = "csv" | "pdf" | "json";
+type Format = "csv" | "pdf";
 
 const KINDS: { key: Kind; label: string; desc: string; formats: Format[]; standOnly?: boolean; moodOnly?: boolean }[] = [
-  { key: "full", label: "Complete activity report", desc: "Everything in one file", formats: ["pdf", "json"] },
-  { key: "stats", label: "Productivity statistics", desc: "Daily totals and summary", formats: ["pdf", "csv", "json"] },
-  { key: "tasks", label: "Tasks", desc: "Titles, subjects, deadlines, status", formats: ["csv", "json"] },
-  { key: "pomodoro", label: "Pomodoro history", desc: "Every focus session", formats: ["csv", "json"], standOnly: true },
-  { key: "mood", label: "Mood check-ins", desc: "Your check-in history", formats: ["csv", "json"], moodOnly: true },
+  { key: "full", label: "Full activity report", desc: "Summary, tasks and focus sessions", formats: ["pdf"] },
+  { key: "stats", label: "Productivity summary", desc: "Totals for each day", formats: ["pdf", "csv"] },
+  { key: "tasks", label: "Tasks", desc: "Titles, subjects, deadlines and status", formats: ["csv"] },
+  { key: "pomodoro", label: "Focus sessions", desc: "Every Pomodoro session", formats: ["csv"], standOnly: true },
+  { key: "mood", label: "Mood check-ins", desc: "Your check-in history", formats: ["csv"], moodOnly: true },
 ];
-const FORMAT_ICON = { csv: FileSpreadsheet, pdf: FileText, json: FileJson };
+const FORMAT_ICON = { csv: FileSpreadsheet, pdf: FileText };
 const RANGES = [
   { key: 7, label: "Last 7 days" },
   { key: 30, label: "Last 30 days" },
@@ -36,6 +37,8 @@ export default function ExportPage() {
   const today = localDayKey(new Date());
   const [from, setFrom] = useState(localDayKey(Date.now() - 29 * 86_400_000));
   const [to, setTo] = useState(today);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
   const history = useApi<{ items: { id: number; kind: string; format: string; status: string; rows: number | null; createdAt: number }[] }>(me.access.features.exports ? "/api/export?history=1" : null);
 
   if (!me.access.features.exports) {
@@ -51,6 +54,35 @@ export default function ExportPage() {
   const fmt = current.formats.includes(format) ? format : current.formats[0];
   const range = preset ? { from: localDayKey(Date.now() - (preset - 1) * 86_400_000), to: today } : { from, to };
   const href = `/api/export?kind=${kind}&format=${fmt}&from=${range.from}&to=${range.to}`;
+
+  // Fetch the file and save it with its real name. Opening the URL directly made phone
+  // browsers show the PDF in a tab instead of saving it.
+  async function download() {
+    setBusy(true);
+    try {
+      const res = await fetch(href, { credentials: "same-origin", cache: "no-store" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error?.message ?? "The file couldn't be created. Please try again.");
+      }
+      const blob = await res.blob();
+      const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? `focusdock-${kind}.${fmt}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast(`Saved ${name}`);
+      void history.reload();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "The file couldn't be created.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-[480px] px-4">
@@ -70,8 +102,8 @@ export default function ExportPage() {
 
       <div className="mt-5">
         <Label>Format</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {(["pdf", "csv", "json"] as Format[]).map((f) => {
+        <div className="grid grid-cols-2 gap-2">
+          {(["pdf", "csv"] as Format[]).map((f) => {
             const Icon = FORMAT_ICON[f];
             const ok = current.formats.includes(f);
             return (
@@ -97,14 +129,9 @@ export default function ExportPage() {
         )}
       </div>
 
-      <a href={href} download onClick={() => setTimeout(() => history.reload(), 1500)} className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand-700 text-base font-semibold text-white shadow-[0_6px_16px_rgb(21_57_176/0.28)] active:scale-[0.98]">
-        <Download className="size-5" /> Download {fmt.toUpperCase()}
-      </a>
-      <div className="mt-3">
-        <Notice>
-          Exports only include your own data. {!me.access.standOwner && "Focus and mood data are recorded only for FocusDock stand owners."}
-        </Notice>
-      </div>
+      <Button full size="lg" className="mt-6" loading={busy} icon={<Download className="size-5" />} onClick={download}>
+        Download {fmt.toUpperCase()}
+      </Button>
 
       {history.data && history.data.items.length > 0 && (
         <>

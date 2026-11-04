@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
+import {forwardRef, useRef, useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes} from "react";
 import { AlertTriangle, Inbox, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { cx } from "@/lib/cx";
@@ -92,8 +92,14 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
 }
 
 export function Chip({ selected, children, className, locked, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean; locked?: boolean }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  // In horizontally scrolling chip rows, keep the selected chip fully visible.
+  useEffect(() => {
+    if (selected) ref.current?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  }, [selected]);
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={selected}
       className={cx(
@@ -193,9 +199,13 @@ export function Toggle({ checked, onChange, label, description, disabled }: { ch
         aria-label={label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cx("relative h-7 w-12 shrink-0 rounded-full transition-colors", checked ? "bg-brand-600" : "bg-slate-300")}
+        className={cx("relative block h-7 w-12 shrink-0 rounded-full p-0 transition-colors", checked ? "bg-brand-600" : "bg-slate-300")}
       >
-        <span className={cx("absolute top-0.5 size-6 rounded-full bg-white shadow transition-transform", checked ? "translate-x-[22px]" : "translate-x-0.5")} />
+        {/* Anchored to the left edge: 2px inset when off, 2px inset from the right when on (48 - 24 - 2 - 2 = 20px travel). */}
+        <span
+          aria-hidden
+          className={cx("pointer-events-none absolute top-0.5 left-0.5 block size-6 rounded-full bg-white shadow transition-transform duration-200", checked ? "translate-x-5" : "translate-x-0")}
+        />
       </button>
     </label>
   );

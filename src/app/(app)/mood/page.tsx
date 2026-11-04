@@ -87,7 +87,7 @@ export default function MoodHistory() {
               <Card className="p-4">
                 <p className="mb-3 text-xs text-muted">Average focus minutes on days you checked in with each mood.</p>
                 <HBarList items={data.insights.byMood.map((m) => ({ label: `${m.emoji} ${m.label}`, value: m.avgFocusMinutes ?? 0, color: moodOf(m.mood).color, sub: `${m.days}d` }))} unit="m" />
-                <p className="mt-3 text-[11px] text-faint">Self-reported mood for reflection only — not a medical or psychological assessment.</p>
+                <p className="mt-3 text-[11px] text-faint">Based on your own check-ins. This is not a medical assessment.</p>
               </Card>
             </>
           )}

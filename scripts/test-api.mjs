@@ -94,11 +94,17 @@ check("recovery code returned once", /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$/.test(r.dat
 const s1Recovery = r.data.recoveryCode;
 r = await s1.get("/api/me");
 check("account is a standard (non-stand) account", r.data.user?.accountType === "standard", r.data.user);
-check("starts on Freemium", r.data.access?.isPremium === false);
+check("starts without a plan", r.data.access?.isPremium === false && r.data.access?.subscriptionRequired === true, r.data.access);
 check("stored password is hashed (scrypt), never plain text", /^scrypt\$/.test((await db.get("SELECT password_hash FROM users WHERE username = ?", s1name)).password_hash));
 r = await new Phone().post("/api/auth/register", { username: s1name.toUpperCase(), password: "Student2026", displayName: "Dup" });
 check("duplicate username rejected (case-insensitive)", r.status === 409 && code(r) === "USERNAME_TAKEN", r.data);
 await s1.patch("/api/profile", { onboarded: true });
+for (const [m, path, body] of [["get", "/api/tasks"], ["post", "/api/tasks", task("No plan yet")], ["get", "/api/dashboard"], ["get", "/api/subjects"], ["get", "/api/summary"]]) {
+  r = await s1[m](path, body);
+  check(`no plan → ${m.toUpperCase()} ${path} refused (SUBSCRIPTION_REQUIRED)`, r.status === 403 && code(r) === "SUBSCRIPTION_REQUIRED", r.data);
+}
+r = await s1.get("/api/billing");
+check("no plan → can still open billing to subscribe", r.status === 200 && r.data.plans?.length === 3, r.status);
 
 // 2 ─────────────────────────────────────────────────────────────────────────
 group("2. Existing user login");
@@ -187,40 +193,40 @@ check("Stand page info still viewable by the owner", r.status === 200 && r.data.
 check("no trial before the first tap", r.data.trialGrantedAt === null);
 
 // 8 ─────────────────────────────────────────────────────────────────────────
-group("8. Freemium task limit");
+group("8. Freemium task limit (stand owner without Premium)");
 const ids = [];
 for (let i = 1; i <= 3; i++) {
-  r = await s1.post("/api/tasks", task(`Free task ${i}`));
+  r = await b1.post("/api/tasks", task(`Free task ${i}`));
   ids.push(r.data.task?.id);
   check(`open task ${i} created`, r.status === 201, r.data);
 }
-r = await s1.post("/api/tasks", task("Free task 4"));
+r = await b1.post("/api/tasks", task("Free task 4"));
 check("4th open task rejected (TASK_LIMIT, server-side)", r.status === 403 && code(r) === "TASK_LIMIT", r.data);
-r = await s1.post(`/api/tasks/${ids[0]}/status`, { status: "completed" });
+r = await b1.post(`/api/tasks/${ids[0]}/status`, { status: "completed" });
 check("completing a task frees a slot", r.status === 200 && r.data.task.status === "completed");
-r = await s1.post("/api/tasks", task("Free task 4"));
+r = await b1.post("/api/tasks", task("Free task 4"));
 check("now a new task can be created", r.status === 201, r.data);
 ids.push(r.data.task?.id);
-r = await s1.post(`/api/tasks/${ids[0]}/status`, { status: "pending" });
+r = await b1.post(`/api/tasks/${ids[0]}/status`, { status: "pending" });
 check("re-opening a completed task respects the limit", r.status === 403 && code(r) === "TASK_LIMIT", r.data);
-r = await s1.del(`/api/tasks/${ids[1]}`);
+r = await b1.del(`/api/tasks/${ids[1]}`);
 check("deleting an open task frees a slot", r.status === 200);
-r = await s1.get("/api/tasks?status=all");
+r = await b1.get("/api/tasks?status=all");
 check("completed tasks stay accessible", r.data.items.some((t) => t.id === ids[0] && t.status === "completed") && r.data.openCount === 2, { open: r.data.openCount });
-r = await s1.get("/api/tasks?effort=L");
+r = await b1.get("/api/tasks?effort=L");
 check("advanced filter (effort) blocked on Freemium", r.status === 403 && code(r) === "PREMIUM_REQUIRED", r.data);
-r = await s1.get("/api/tasks?sort=subject");
+r = await b1.get("/api/tasks?sort=subject");
 check("advanced sort blocked on Freemium", r.status === 403);
-r = await s1.post("/api/tasks", task("Bad", { dueAt: "tomorrow" }));
+r = await b1.post("/api/tasks", task("Bad", { dueAt: "tomorrow" }));
 check("invalid input → 400 VALIDATION", r.status === 400 && code(r) === "VALIDATION", r.data);
-r = await s1.get(`/api/tasks?q=${encodeURIComponent("' OR 1=1 --")}`);
+r = await b1.get(`/api/tasks?q=${encodeURIComponent("' OR 1=1 --")}`);
 check("SQL-injection-looking search is treated as text", r.status === 200 && r.data.items.length === 0, r.data);
-r = await s1.req("POST", "/api/tasks", task("csrf"), { Origin: "https://evil.example" });
+r = await b1.req("POST", "/api/tasks", task("csrf"), { Origin: "https://evil.example" });
 check("cross-origin POST blocked (CSRF)", r.status === 403 && code(r) === "CSRF", r.data);
-r = await s1.post(`/api/tasks/${ids[2]}/status`, { status: "in_progress" });
+r = await b1.post(`/api/tasks/${ids[2]}/status`, { status: "in_progress" });
 check("status → in progress", r.data.task?.status === "in_progress");
-await s1.patch(`/api/tasks/${ids[2]}`, { dueAt: Date.now() - 3_600_000 });
-r = await s1.get(`/api/tasks/${ids[2]}`);
+await b1.patch(`/api/tasks/${ids[2]}`, { dueAt: Date.now() - 3_600_000 });
+r = await b1.get(`/api/tasks/${ids[2]}`);
 check("past deadline → derived status Overdue", r.data.task?.status === "overdue", r.data.task?.status);
 check("status history recorded", r.data.history?.length >= 2, r.data.history);
 
@@ -240,11 +246,11 @@ check("buying while active extends the expiry by the new period", r.data.premium
 r = await s1.post("/api/billing/checkout", { plan: "annual" });
 r = await s1.post(`/api/billing/sandbox/${r.data.id}`, { outcome: "failure" });
 check("failed payment grants nothing", r.data.transaction.status === "failed" && r.data.premium.until === firstUntil + 7 * DAY);
-for (let i = 5; i <= 8; i++) {
+for (let i = 1; i <= 5; i++) {
   r = await s1.post("/api/tasks", task(`Premium task ${i}`, { effort: "L" }));
 }
 r = await s1.get("/api/tasks?status=open");
-check("Premium: more than 3 open tasks allowed", r.data.openCount >= 6 && r.data.maxOpen === null, { open: r.data.openCount });
+check("Premium: more than 3 open tasks allowed", r.data.openCount === 5 && r.data.maxOpen === null, { open: r.data.openCount });
 r = await s1.get("/api/tasks?effort=L&sort=effort");
 check("Premium: advanced filter & sort work", r.status === 200 && r.data.items.every((t) => t.effort === "L"));
 r = await s1.patch("/api/profile", { avatarKey: "robot" });
@@ -254,23 +260,17 @@ const tasksBeforeExpiry = (await s1.get("/api/tasks?status=all")).data.items.len
 const s1id = (await userId(s1name));
 (await db.run("UPDATE user_subscriptions SET starts_at = starts_at - 400 * 86400000, ends_at = ? WHERE user_id = ?", Date.now() - 1000, s1id));
 r = await s1.get("/api/me");
-check("expired → back to Freemium immediately", r.data.access?.isPremium === false, r.data.access?.premium);
+check("expired → plan required again immediately", r.data.access?.isPremium === false && r.data.access?.subscriptionRequired === true, r.data.access?.premium);
 r = await s1.get("/api/tasks?status=all");
-const openAfter = r.data.openCount;
-check("all tasks preserved after expiry", r.data.items.length === tasksBeforeExpiry, { before: tasksBeforeExpiry, after: r.data.items.length });
-r = await s1.post("/api/tasks", task("After expiry"));
-check("cannot exceed 3 open tasks after expiry", r.status === 403 && code(r) === "TASK_LIMIT", { open: openAfter });
-const someOpen = (await s1.get("/api/tasks?status=open")).data.items[0];
-r = await s1.patch(`/api/tasks/${someOpen.id}`, { title: "Edited after expiry" });
-check("existing tasks can still be edited", r.status === 200 && r.data.task.title === "Edited after expiry");
-r = await s1.post(`/api/tasks/${someOpen.id}/status`, { status: "completed" });
-check("…and completed", r.status === 200);
+check("expired non-stand account can't use tasks", r.status === 403 && code(r) === "SUBSCRIPTION_REQUIRED", r.data);
+const keptTasks = (await db.get("SELECT COUNT(*) AS n FROM tasks WHERE user_id = ?", s1id)).n;
+check("all tasks kept in the database after expiry", keptTasks === tasksBeforeExpiry, { before: tasksBeforeExpiry, kept: keptTasks });
 r = await s1.get("/api/summary?range=month");
-check("monthly analytics locked again", r.status === 403 && code(r) === "PREMIUM_REQUIRED");
+check("analytics locked after expiry", r.status === 403);
 r = await s1.get("/api/export?kind=tasks&format=csv&from=2026-01-01&to=2026-12-31");
-check("exports locked again", r.status === 403);
+check("exports locked after expiry", r.status === 403);
 r = await s1.patch("/api/profile", { avatarKey: "frog" });
-check("other Premium avatars locked again", r.status === 403);
+check("Premium avatars locked after expiry", r.status === 403);
 r = await s1.get("/api/notifications");
 check("'Premium has ended' notification created", r.data.items?.some((n) => n.kind === "subscription" && /ended/i.test(n.title)), r.data.items?.map((n) => n.title));
 
@@ -282,6 +282,15 @@ const bId = (await userId(ownerB.username));
 (await db.run("UPDATE user_subscriptions SET starts_at = starts_at - 40 * 86400000, ends_at = ? WHERE user_id = ?", Date.now() - 1000, bId));
 r = await b1.get("/api/pomodoro/state");
 check("trial expired → Freemium limits apply", r.data.today?.limit === 4, r.data.today);
+r = await b1.get("/api/tasks?status=open");
+const bOpen = r.data.openCount;
+check("stand owner keeps using the app on Freemium after the trial", r.status === 200 && bOpen === 2, { open: bOpen });
+r = await b1.post("/api/tasks", task("After trial"));
+check("…can open a 3rd task", r.status === 201, r.data);
+r = await b1.post("/api/tasks", task("After trial 2"));
+check("…but not a 4th (TASK_LIMIT)", r.status === 403 && code(r) === "TASK_LIMIT", r.data);
+r = await b1.patch(`/api/tasks/${ids[3]}`, { title: "Edited after trial" });
+check("…and existing tasks can still be edited", r.status === 200 && r.data.task.title === "Edited after trial");
 r = await b1.post("/api/pomodoro/start", { preset: "50/10" });
 check("50/10 preset blocked on Freemium", r.status === 403 && code(r) === "PREMIUM_REQUIRED", r.data);
 r = await b1.post("/api/pomodoro/start", { preset: "custom", focusMinutes: 40, breakMinutes: 5 });
@@ -343,8 +352,10 @@ check("focus minutes accumulated on the task", r.data.task.focusMinutes === 25 &
 group("13. Access restrictions for non-stand users (even with Premium)");
 (await db.run("INSERT INTO user_subscriptions (user_id, plan_code, source, starts_at, ends_at, created_at) VALUES (?, 'monthly', 'admin', ?, ?, ?)", s1id, Date.now() - 1000, Date.now() + 30 * DAY, Date.now()));
 r = await s1.get("/api/me");
-check("standard user is Premium again", r.data.access?.isPremium === true);
+check("standard user is Premium again", r.data.access?.isPremium === true && r.data.access?.subscriptionRequired === false);
 check("…but stand features stay off", !r.data.access.features.pomodoro && !r.data.access.features.checkin && !r.data.access.features.moodHistory);
+r = await s1.get("/api/tasks?status=all");
+check("renewing restores access to the kept tasks", r.status === 200 && r.data.items.length === tasksBeforeExpiry, { n: r.data.items?.length });
 for (const [m, p, b] of [["get", "/api/pomodoro/state"], ["post", "/api/pomodoro/start", { preset: "25/5" }], ["post", "/api/checkins", { mood: "good", mindset: "ready" }], ["get", "/api/checkins"], ["get", "/api/stand"], ["get", "/api/pomodoro/history"], ["get", "/api/audio"]]) {
   r = await s1[m](p, b);
   check(`${m.toUpperCase()} ${p} → 403 STAND_OWNER_ONLY`, r.status === 403 && code(r) === "STAND_OWNER_ONLY", r.data);
@@ -399,14 +410,18 @@ const yearAgo = new Date(Date.now() - 365 * DAY).toISOString().slice(0, 10);
 r = await a2.get(`/api/export?kind=tasks&format=csv&from=${yearAgo}&to=${today}`);
 check("tasks CSV", r.status === 200 && typeof r.data === "string" && r.data.includes("Title,Type,Subject") && r.data.includes("Calculus Homework"), String(r.data).slice(0, 120));
 check("…downloads as an attachment", /attachment; filename="focusdock-tasks-/.test(r.headers.get("content-disposition") ?? ""));
-r = await a2.get(`/api/export?kind=pomodoro&format=json&from=${yearAgo}&to=${today}`);
-check("Pomodoro JSON", r.status === 200 && r.data.sessions?.length >= 1, r.data);
+r = await a2.get(`/api/export?kind=pomodoro&format=csv&from=${yearAgo}&to=${today}`);
+check("Pomodoro CSV", r.status === 200 && String(r.data).includes("Started,Ended") && String(r.data).includes("Calculus Homework"), String(r.data).slice(0, 120));
 r = await a2.get(`/api/export?kind=mood&format=csv&from=${yearAgo}&to=${today}`);
 check("mood CSV for Premium stand owner", r.status === 200 && String(r.data).includes("Stressed"));
 r = await a2.get(`/api/export?kind=full&format=pdf&from=${yearAgo}&to=${today}`);
 check("full report PDF", r.status === 200 && Buffer.isBuffer(r.data) && r.data.subarray(0, 5).toString() === "%PDF-" && r.data.length > 1500, r.data?.length);
-r = await a2.get(`/api/export?kind=full&format=json&from=${yearAgo}&to=${today}`);
-check("full JSON contains only own data", r.status === 200 && r.data.account?.username === ownerA.username && r.data.tasks.every((t) => t.title !== "Free task 1"));
+for (const kind of ["full", "tasks", "stats"]) {
+  r = await a2.get(`/api/export?kind=${kind}&format=json&from=${yearAgo}&to=${today}`);
+  check(`JSON export removed (${kind})`, r.status === 400, r.status);
+}
+r = await a2.get(`/api/export?kind=tasks&format=csv&from=${yearAgo}&to=${today}`);
+check("export contains only own data", !String(r.data).includes("Free task"));
 r = await a2.get(`/api/export?kind=tasks&format=pdf&from=${yearAgo}&to=${today}`);
 check("unsupported format combination rejected", r.status === 400);
 r = await b1.get(`/api/export?kind=tasks&format=csv&from=${yearAgo}&to=${today}`);
@@ -464,7 +479,7 @@ r = await a2.post(`/api/pomodoro/${focusId + 100000}`, { action: "pause" });
 check("cannot act on a session that isn't yours", r.status === 409 || r.status === 404, r.status);
 r = await a2.get("/api/tasks?status=all");
 check("task list only contains own tasks", r.data.items.every((t) => !t.title.startsWith("Free task") && !t.title.startsWith("Premium task")));
-r = await s1.get(`/api/tasks/${victimTask}`);
+r = await b1.get(`/api/tasks/${victimTask}`);
 check("victim's task untouched", r.data.task?.title !== "hacked" && r.status === 200);
 r = await new Phone().get("/api/tasks");
 check("anonymous request → 401", r.status === 401);

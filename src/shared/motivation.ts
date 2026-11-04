@@ -4,7 +4,7 @@ import type { MindsetKey, MoodKey } from "./catalog";
 
 const MOOD_LINES: Record<MoodKey, string> = {
   great: "Love that energy! Let's put it to good use.",
-  good: "Nice — a good day is a great day to make progress.",
+  good: "Nice! A good day is a great time to make progress.",
   okay: "Okay is a perfectly fine place to start.",
   tired: "Thanks for being honest. Small, steady steps still count.",
   stressed: "That sounds heavy. Let's make the next step small and clear.",
@@ -14,7 +14,7 @@ const MOOD_LINES: Record<MoodKey, string> = {
 const MINDSET_TIPS: Record<MindsetKey, string> = {
   ready: "Pick your most important task and dive in.",
   need_focus: "Put your phone on the stand, choose one task, and let the timer do the rest.",
-  distracted: "Try one short session with a single task — just 25 minutes.",
+  distracted: "Try one short 25-minute session on a single task.",
   pressured: "List what's due soonest and tackle the smallest piece first.",
   starting: "Begin with a quick win to build momentum.",
 };

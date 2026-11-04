@@ -10,6 +10,7 @@ import { SubjectPicker, type Subject } from "./Subjects";
 import { SubjectIcon } from "./SubjectIcon";
 import { VoiceTaskSheet } from "./VoiceTaskSheet";
 import { Button, Chip, Input, Label, Textarea, cx } from "./ui";
+import { DictateButton } from "./DictateButton";
 
 export type TaskFormValues = { title: string; type: TaskType; subjectId: number | null; dueAt: number; effort: Effort; description: string | null };
 
@@ -148,7 +149,7 @@ export function TaskForm({
               onClick={() => setEffort(e.key)}
               className={cx("rounded-2xl border px-2 py-2.5 text-center transition-colors", effort === e.key ? "border-brand-700 bg-brand-700 text-white" : "border-line bg-white text-ink-2")}
             >
-              <span className="block text-lg font-extrabold leading-tight">{e.key}</span>
+              <span className="block text-[15px] font-bold leading-tight">{e.label}</span>
               <span className={cx("block text-[11px]", effort === e.key ? "text-brand-100" : "text-muted")}>{e.hint}</span>
             </button>
           ))}
@@ -158,7 +159,9 @@ export function TaskForm({
       <div>
         {showDesc ? (
           <>
-            <Label htmlFor="desc">Description</Label>
+            <Label htmlFor="desc" hint={<DictateButton label="Speak the description" onText={(t) => setDescription((d) => (d ? `${d} ${t}` : t))} />}>
+              Description
+            </Label>
             <Textarea id="desc" placeholder="Instructions, links, page numbers…" maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
           </>
         ) : (

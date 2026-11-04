@@ -24,7 +24,7 @@ type StandInfo = {
 };
 
 const RESULT: Record<string, string> = {
-  verified: "Verified — new session",
+  verified: "Verified (new session)",
   refreshed: "Verification renewed",
   wrong_owner: "Tapped while signed in to another account",
   login_required: "Tapped while signed out",
@@ -42,7 +42,7 @@ export default function StandPage() {
     try {
       const r = await api<{ newSession: boolean; verificationId: number; trialGranted: boolean }>("/api/nfc/verify", { body: await nfc.scan() });
       await Promise.all([refresh(), reload()]);
-      toast(r.trialGranted ? "Verified — 30-day Premium trial started!" : "Stand verified");
+      toast(r.trialGranted ? "Stand verified. Your 30-day Premium trial has started!" : "Stand verified");
       if (r.newSession) router.push(`/checkin?v=${r.verificationId}`);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Couldn't verify the stand.", "error");
@@ -62,7 +62,7 @@ export default function StandPage() {
             <PhoneOnStand className="size-24 shrink-0" />
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">{data.stand?.model ?? "FocusDock Stand"}</p>
-              <p className="text-2xl font-extrabold tracking-tight text-ink">{data.stand?.code ?? "—"}</p>
+              <p className="text-2xl font-extrabold tracking-tight text-ink">{data.stand?.code ?? "Not linked"}</p>
               {data.stand && <p className="text-xs text-muted">Linked {fmtDate(data.stand.assignedAt)}</p>}
             </div>
           </Card>
@@ -88,11 +88,10 @@ export default function StandPage() {
 
           <SectionTitle>How verification works</SectionTitle>
           <Card className="space-y-2 p-4 text-sm text-ink-2">
-            <p>• Tapping the stand opens a secure FocusDock link that verifies this phone&apos;s session.</p>
+            <p>• Tap your phone on the stand to unlock Focus and Check-in.</p>
             <p>• Verification stays active while the app is open. If it&apos;s closed for more than {data.rules.nfcGraceMs / 60_000} minutes, or after {data.rules.nfcMaxMs / 3_600_000} hours, tap again.</p>
             <p>• Your stand account can be signed in on one phone at a time. Signing in elsewhere ends this session.</p>
-            <p>• A running focus session isn&apos;t interrupted if verification lapses — you&apos;ll just need to tap before starting the next one.</p>
-          </Card>
+                      </Card>
 
           <SectionTitle>This device</SectionTitle>
           <Card className="divide-y divide-line">

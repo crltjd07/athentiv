@@ -8,21 +8,27 @@ import { Button, cx } from "./ui";
 /** Bottom sheet modal — the primary overlay pattern on phones. */
 export function Sheet({ open, onClose, title, children, className }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode; className?: string }) {
   const panel = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
 
+  // Runs only when the sheet opens or closes. Callers often pass a new onClose on every render,
+  // so depending on it here would re-focus the panel on each keystroke and close the keyboard.
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", onKey);
-    panel.current?.focus();
+    if (!panel.current?.contains(document.activeElement)) panel.current?.focus();
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open || !mounted) return null;
   return createPortal(

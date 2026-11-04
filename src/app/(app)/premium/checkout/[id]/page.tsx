@@ -52,7 +52,7 @@ export default function SandboxCheckout() {
         </div>
         <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-ink">Premium activated</h1>
         <p className="mt-2 text-sm text-muted">{t.planName} is on your account{data.premium.until ? ` until ${fmtDateLong(data.premium.until)}` : ""}.</p>
-        <p className="mt-3 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Sandbox payment — no money was charged</p>
+        <p className="mt-3 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Test payment. No money was charged.</p>
         <ButtonLink href="/home" size="lg" className="mt-8 w-full max-w-xs">Continue</ButtonLink>
       </main>
     );
@@ -79,7 +79,7 @@ export default function SandboxCheckout() {
           <FlaskConical className="size-5" /> SANDBOX · TEST MODE
         </p>
         <p className="mt-1 text-sm">
-          No payment gateway is connected. This screen simulates the provider&apos;s result so the subscription flow can be tested end to end. No real money moves and no card or e-wallet details are collected.
+          This is a test checkout. Choose a result below to try the subscription flow. No money is charged and no card or e-wallet details are collected.
         </p>
       </div>
       <Card className="mt-4 divide-y divide-line">

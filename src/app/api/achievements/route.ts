@@ -1,11 +1,11 @@
 import { all } from "@/server/db";
 import { ok, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { checkAchievements, streakOf } from "@/server/activity";
 import { ACHIEVEMENTS } from "@/shared/achievements";
 
 export const GET = route(async () => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const standOwner = auth.user.account_type === "stand_owner";
   await checkAchievements(auth.user.id, auth.tz, standOwner);
   const unlocked = new Map(

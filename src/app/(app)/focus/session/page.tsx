@@ -17,7 +17,7 @@ import { SoundSheet } from "@/components/SoundSheet";
 import { AccessDenied, LoadingScreen } from "@/components/SystemScreens";
 import { Button, cx } from "@/components/ui";
 
-const FOCUS_LINES = ["Stay focused.\nYou got this!", "One thing at a time.", "Deep work in progress.", "Keep going —\nyou're doing great.", "Phone docked,\nmind on track."];
+const FOCUS_LINES = ["Stay focused.\nYou got this!", "One thing at a time.", "Deep work in progress.", "Keep going,\nyou're doing great.", "Phone docked,\nmind on track."];
 
 type WakeLock = { release: () => Promise<void> };
 
@@ -213,7 +213,7 @@ export default function FocusSession() {
       {celebrate && <Celebration {...celebrate} />}
       <div className="mx-auto flex min-h-full max-w-[480px] flex-col px-5 pt-safe pb-safe">
         <div className="flex h-12 items-center justify-between">
-          <button aria-label="Minimise — the timer keeps running" onClick={() => router.push("/home")} className={cx("grid size-11 place-items-center rounded-full", isFocus ? "active:bg-white/10" : "active:bg-black/5")}>
+          <button aria-label="Minimise. The timer keeps running" onClick={() => router.push("/home")} className={cx("grid size-11 place-items-center rounded-full", isFocus ? "active:bg-white/10" : "active:bg-black/5")}>
             <X className="size-6" />
           </button>
           <h1 className="text-[17px] font-bold">{isFocus ? "Focus Session" : "Break Time"}</h1>

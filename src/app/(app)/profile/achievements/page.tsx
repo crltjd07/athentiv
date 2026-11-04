@@ -25,7 +25,7 @@ export default function Achievements() {
             <Card className="p-4 text-center">
               <Flame className={cx("mx-auto size-8", data.streak.current ? "text-orange-500" : "text-faint")} />
               <p className="mt-1 text-3xl font-extrabold text-ink tabular">{data.streak.current}</p>
-              <p className="text-xs text-muted">day streak{data.streak.current && !data.streak.activeToday ? " — study today to keep it!" : ""}</p>
+              <p className="text-xs text-muted">day streak{data.streak.current && !data.streak.activeToday ? ". Study today to keep it going!" : ""}</p>
             </Card>
             <Card className="p-4 text-center">
               <Trophy className="mx-auto size-8 text-amber-500" />

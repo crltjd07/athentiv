@@ -16,7 +16,7 @@ const ICONS: Record<SoundKey, LucideIcon> = { rain: CloudRain, ocean: Waves, for
 type AudioPrefs = { soundKey: SoundKey; volume: number; playlists: { id: number; type: string; label: string; url: string; embedUrl: string }[] };
 
 export function useAmbient() {
-  const [s, setS] = useState(() => ({ playing: false, sound: "rain" as SoundKey, volume: 0.5 }));
+  const [s, setS] = useState(() => ({ playing: false, sound: "rain" as SoundKey, volume: 0.5, blocked: false }));
   useEffect(() => ambient().subscribe(setS), []);
   return s;
 }
@@ -94,14 +94,20 @@ export function SoundSheet({ open, onClose }: { open: boolean; onClose: () => vo
           className="h-2 flex-1 accent-[var(--color-brand-700)]"
         />
       </div>
-      <p className="mt-2 text-xs text-faint">Sounds keep playing while the app is open. Some phones pause audio when the screen locks.</p>
+      {state.blocked ? (
+        <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+          Your phone didn&apos;t let the sound play. Turn the volume up, switch off silent mode, then tap the sound again.
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-faint">Tap a sound to play it. These sounds don&apos;t need Spotify.</p>
+      )}
 
       <div className="mt-6 border-t border-line pt-4">
         <h3 className="flex items-center gap-2 font-bold text-ink">
           <svg viewBox="0 0 24 24" className="size-5" aria-hidden><circle cx="12" cy="12" r="12" fill="#1DB954" /><path d="M6.5 9.5c3.8-1.1 7.6-.8 11 1M7 12.6c3.1-.9 6.2-.6 9 .9M7.6 15.4c2.5-.7 4.9-.5 7.1.7" stroke="#fff" strokeWidth="1.6" fill="none" strokeLinecap="round" /></svg>
           Spotify playlists
         </h3>
-        <p className="mt-1 text-xs text-muted">Save your study playlists and play them with Spotify&apos;s player. Full tracks need the Spotify app or a logged-in Spotify account; otherwise Spotify plays previews.</p>
+        <p className="mt-1 text-xs text-muted">Optional. Save your study playlists to play them here or open them in Spotify.</p>
         <ul className="mt-3 space-y-2">
           {prefs.data?.playlists.map((p) => (
             <li key={p.id} className="rounded-2xl border border-line bg-white p-2.5">

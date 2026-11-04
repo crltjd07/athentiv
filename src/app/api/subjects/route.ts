@@ -1,18 +1,18 @@
 import { isUniqueViolation, one, run, tx } from "@/server/db";
 import { listSubjects } from "@/server/subjects";
 import { err, ok, readJson, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { subjectBulkSchema, subjectSchema } from "@/shared/schemas";
 import { LIMITS } from "@/shared/limits";
 
 export const GET = route(async () => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   return ok({ items: await listSubjects(auth.user.id) });
 });
 
 /** Creates one subject (`{name,color,icon}`) or several at once (`{subjects:[...]}`, used by onboarding). */
 export const POST = route(async (req) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const raw = await readJson(req, subjectSchema.or(subjectBulkSchema));
   const items = "subjects" in raw ? raw.subjects : [raw];
   const created = await tx(async () => {

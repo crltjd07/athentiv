@@ -17,6 +17,7 @@ import { EffortBadge, StatusBadge, TypeBadge, type Task } from "@/components/Tas
 import { useToast } from "@/components/Toast";
 import { Button, ButtonLink, Card, ErrorState, PageSkeleton, ProgressBar, SectionTitle, cx } from "@/components/ui";
 import { GenericDenied } from "@/components/SystemScreens";
+import { DictateButton } from "@/components/DictateButton";
 
 type Detail = {
   task: Task;
@@ -123,7 +124,7 @@ export default function TaskDetail() {
       <div className="flex items-start gap-3.5 animate-fade-up">
         <SubjectIcon icon={t.subject?.icon} color={t.subject?.color} size={56} />
         <div className="min-w-0 flex-1">
-          <h2 className={cx("text-xl font-extrabold leading-snug tracking-tight text-ink", done && "line-through decoration-faint")}>{t.title}</h2>
+          <h2 className={cx("text-xl font-extrabold leading-snug tracking-tight text-ink", done && "text-muted line-through decoration-slate-500 decoration-2")}>{t.title}</h2>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <TypeBadge type={t.type} />
             <StatusBadge status={t.status} />
@@ -144,7 +145,7 @@ export default function TaskDetail() {
         <div className="flex items-center gap-3 px-4 py-3">
           <EffortBadge effort={t.effort} />
           <p className="text-sm text-ink-2">
-            Effort size: <span className="font-semibold text-ink">{effortOf(t.effort).label}</span> ({effortOf(t.effort).hint})
+            Effort: <span className="font-semibold text-ink">{effortOf(t.effort).label}</span> ({effortOf(t.effort).hint})
           </p>
         </div>
         {t.subject && (
@@ -184,7 +185,8 @@ export default function TaskDetail() {
           ))}
         </ul>
         <form onSubmit={addItem} className="mt-2 flex items-center gap-2">
-          <input value={newItem} onChange={(e) => setNewItem(e.target.value)} maxLength={120} placeholder="Add a step, e.g. Review lecture notes" className="h-11 flex-1 rounded-xl border border-line bg-slate-50 px-3 outline-none focus:border-brand-500" />
+          <input value={newItem} onChange={(e) => setNewItem(e.target.value)} maxLength={120} placeholder="Add a step, e.g. Review lecture notes" className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-slate-50 px-3 outline-none focus:border-brand-500" />
+          <DictateButton label="Speak a step" className="size-11 rounded-xl" onText={(t) => setNewItem(t.slice(0, 120))} />
           <button type="submit" aria-label="Add step" className="grid size-11 place-items-center rounded-xl bg-brand-50 text-brand-700">
             <Plus className="size-5" />
           </button>

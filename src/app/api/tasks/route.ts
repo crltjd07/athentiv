@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { all, run, tx } from "@/server/db";
 import { err, ok, readJson, readQuery, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { isPremium } from "@/server/access";
 import { recomputeAt, checkAchievements } from "@/server/activity";
 import { assertCanOpenTask, assertOwnedSubject, getOwnedTask, openTaskCount, serializeTask, TASK_SELECT, type TaskRow } from "@/server/tasks";
@@ -22,7 +22,7 @@ const querySchema = z.object({
 });
 
 export const GET = route(async (req) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const q = readQuery(req, querySchema);
   const premium = await isPremium(auth.user.id, auth.now);
 
@@ -72,7 +72,7 @@ export const GET = route(async (req) => {
 });
 
 export const POST = route(async (req) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const input = await readJson(req, taskSchema);
   const task = await tx(async () => {
     await assertCanOpenTask(auth);

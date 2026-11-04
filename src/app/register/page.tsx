@@ -44,8 +44,8 @@ export default function Register() {
     return (
       <AuthScaffold title="You're in! 🎉" subtitle="One last thing before you start.">
         <RecoveryCodeCard code={code} />
-        <Button full size="lg" className="mt-6" onClick={() => router.replace("/onboarding")}>
-          I&apos;ve saved it — continue
+        <Button full size="lg" className="mt-6" onClick={() => router.replace("/premium")}>
+          I&apos;ve saved it
         </Button>
       </AuthScaffold>
     );
@@ -54,7 +54,7 @@ export default function Register() {
   return (
     <AuthScaffold
       title="Create your account"
-      subtitle="Free forever. Upgrade to Premium only if you want more."
+      subtitle="Without a FocusDock stand, the app works with a Premium plan. You'll choose one next."
       footer={
         <>
           Already have an account?{" "}
@@ -86,7 +86,7 @@ export default function Register() {
           Create account
         </Button>
         <p className="px-2 text-center text-xs text-faint">
-          Self-registered accounts are standard accounts. FocusDock stand owners receive a premade account with their stand.
+          Have a FocusDock stand? Your account comes with the stand. Sign in with it instead.
         </p>
       </form>
     </AuthScaffold>

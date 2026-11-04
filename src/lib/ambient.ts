@@ -6,7 +6,24 @@
 
 import type { SoundKey } from "@/shared/catalog";
 
-type Listener = (s: { playing: boolean; sound: SoundKey; volume: number }) => void;
+type Listener = (s: { playing: boolean; sound: SoundKey; volume: number; blocked: boolean }) => void;
+
+/** A short silent WAV, built once. Playing it as normal media keeps iPhones from muting the sound. */
+let silentWavUrl: string | null = null;
+function silentWav() {
+  if (silentWavUrl) return silentWavUrl;
+  const rate = 8000;
+  const samples = rate / 2;
+  const buf = new ArrayBuffer(44 + samples);
+  const v = new DataView(buf);
+  const str = (o: number, t: string) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF"); v.setUint32(4, 36 + samples, true); str(8, "WAVE"); str(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, "data"); v.setUint32(40, samples, true);
+  for (let i = 0; i < samples; i++) v.setUint8(44 + i, 128);
+  silentWavUrl = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+  return silentWavUrl;
+}
 
 class AmbientEngine {
   private ctx: AudioContext | null = null;
@@ -14,6 +31,9 @@ class AmbientEngine {
   private stopFns: (() => void)[] = [];
   private listeners = new Set<Listener>();
   playing = false;
+  /** True when the browser refused to start audio (for example a phone setting). */
+  blocked = false;
+  private keepAlive: HTMLAudioElement | null = null;
   sound: SoundKey = "rain";
   volume = 0.5;
 
@@ -25,7 +45,7 @@ class AmbientEngine {
     };
   }
   private snapshot() {
-    return { playing: this.playing, sound: this.sound, volume: this.volume };
+    return { playing: this.playing, sound: this.sound, volume: this.volume, blocked: this.blocked };
   }
   private emit() {
     for (const l of this.listeners) l(this.snapshot());
@@ -40,6 +60,14 @@ class AmbientEngine {
       this.master.connect(this.ctx.destination);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
+    // iPhones mute Web Audio when the ring/silent switch is on, but not media playback.
+    // A looping silent track makes the phone treat this as media, so the sounds can be heard.
+    if (!this.keepAlive) {
+      this.keepAlive = new Audio(silentWav());
+      this.keepAlive.loop = true;
+      this.keepAlive.setAttribute("playsinline", "");
+    }
+    if (this.keepAlive.paused) void this.keepAlive.play().catch(() => {});
     return { ctx: this.ctx, out: this.master! };
   }
 
@@ -204,6 +232,15 @@ class AmbientEngine {
     this.sound = key;
     this.build(key);
     this.playing = true;
+    this.blocked = false;
+    // If the browser still hasn't started audio shortly after a tap, tell the user why.
+    const ctx = this.ctx;
+    setTimeout(() => {
+      if (this.playing && ctx && ctx.state !== "running") {
+        this.blocked = true;
+        this.emit();
+      }
+    }, 800);
     this.emit();
   }
 
@@ -215,6 +252,8 @@ class AmbientEngine {
   stop() {
     this.stopSources();
     this.playing = false;
+    this.blocked = false;
+    this.keepAlive?.pause();
     this.emit();
   }
 
@@ -252,6 +291,9 @@ class AmbientEngine {
       o.start(t);
       o.stop(t + 1);
     });
+    setTimeout(() => {
+      if (!this.playing) this.keepAlive?.pause();
+    }, 2000);
   }
 }
 

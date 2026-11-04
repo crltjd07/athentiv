@@ -61,7 +61,7 @@ export function VoiceTaskSheet({ open, onClose, subjects, onApply }: { open: boo
       setTranscript(text);
     };
     r.onerror = (e) => {
-      setError(e.error === "not-allowed" ? "Microphone access was blocked. Allow it in your browser settings, or type instead." : e.error === "no-speech" ? "Didn't catch that — try again." : "Voice input stopped. You can type instead.");
+      setError(e.error === "not-allowed" ? "Microphone access was blocked. Allow it in your browser settings, or type instead." : e.error === "no-speech" ? "Didn't catch that. Try again." : "Voice input stopped. You can type instead.");
       setListening(false);
     };
     r.onend = () => setListening(false);
@@ -90,7 +90,7 @@ export function VoiceTaskSheet({ open, onClose, subjects, onApply }: { open: boo
               </span>
             </button>
             <p className="mt-3 font-bold text-ink">{listening ? "Listening…" : "Tap the microphone"}</p>
-            <p className="mt-1 max-w-xs text-sm text-muted">Speak the details of your assignment, e.g. &ldquo;Programming project due next Friday with large effort&rdquo;.</p>
+            <p className="mt-1 max-w-xs text-sm text-muted">Speak the details of your assignment, e.g. &ldquo;Programming project due next Friday, heavy effort&rdquo;.</p>
           </>
         ) : (
           <p className="max-w-xs text-sm text-muted">Voice input isn&apos;t available in this browser. Type the task in plain words and we&apos;ll fill in the form for you.</p>
@@ -111,7 +111,7 @@ export function VoiceTaskSheet({ open, onClose, subjects, onApply }: { open: boo
         <div className="mt-4 rounded-2xl border border-line bg-slate-50 p-3.5 text-sm animate-fade-up">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">Here&apos;s what we understood</p>
           <dl className="grid grid-cols-[84px_1fr] gap-y-1.5">
-            <Row k="Title" v={parsed.title || "—"} />
+            <Row k="Title" v={parsed.title || "Not detected"} miss={!parsed.title} />
             <Row k="Type" v={parsed.type ? taskTypeLabel(parsed.type) : "Not detected"} miss={!parsed.type} />
             <Row k="Subject" v={parsed.subjectName ?? "Not detected"} miss={!parsed.subjectName} />
             <Row k="Due" v={parsed.due ? fmtDue(parsed.due.getTime()) : "Not detected"} miss={!parsed.due} />

@@ -9,14 +9,14 @@ import { effortOf, mindsetOf, moodOf, taskTypeLabel } from "@/shared/catalog";
 import { derivedStatus } from "./tasks";
 
 export type ExportKind = "tasks" | "pomodoro" | "stats" | "mood" | "full";
-export type ExportFormat = "csv" | "pdf" | "json";
+export type ExportFormat = "csv" | "pdf";
 
 export const EXPORT_FORMATS: Record<ExportKind, ExportFormat[]> = {
-  tasks: ["csv", "json"],
-  pomodoro: ["csv", "json"],
-  stats: ["csv", "json", "pdf"],
-  mood: ["csv", "json"],
-  full: ["json", "pdf"],
+  tasks: ["csv"],
+  pomodoro: ["csv"],
+  stats: ["pdf", "csv"],
+  mood: ["csv"],
+  full: ["pdf"],
 };
 
 /** Quotes a CSV cell and neutralises spreadsheet formula injection. */
@@ -101,55 +101,21 @@ export async function buildExport(auth: Auth, kind: ExportKind, format: ExportFo
       title: t.title, type: taskTypeLabel(t.type), subject: t.subject ?? "", due: stamp(tz, t.due_at), effort: effortOf(t.effort).label,
       status: derivedStatus(t, now), focusMinutes: Math.round(t.focus_secs / 60), created: stamp(tz, t.created_at), completed: stamp(tz, t.completed_at), description: t.description ?? "",
     }));
-    body = format === "csv"
-      ? csv(["Title", "Type", "Subject", "Due", "Effort", "Status", "Focus minutes", "Created", "Completed", "Description"], mapped.map(Object.values))
-      : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, tasks: mapped }, null, 2);
+    body = csv(["Title", "Type", "Subject", "Due", "Effort", "Status", "Focus minutes", "Created", "Completed", "Description"], mapped.map(Object.values));
   } else if (kind === "pomodoro") {
     const s = await loadSessions(auth, start, end);
     rows = s.length;
     const mapped = s.map((p) => ({ started: stamp(tz, p.started_at), ended: stamp(tz, p.ended_at), status: p.status, preset: p.preset, plannedMinutes: Math.round(p.planned_seconds / 60), focusedMinutes: Math.round((p.focused_seconds ?? 0) / 60), task: p.task ?? "General study", subject: p.subject ?? "" }));
-    body = format === "csv"
-      ? csv(["Started", "Ended", "Status", "Preset", "Planned minutes", "Focused minutes", "Task", "Subject"], mapped.map(Object.values))
-      : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, sessions: mapped }, null, 2);
+    body = csv(["Started", "Ended", "Status", "Preset", "Planned minutes", "Focused minutes", "Task", "Subject"], mapped.map(Object.values));
   } else if (kind === "mood") {
     const m = await loadMood(auth, start, end);
     rows = m.length;
     const mapped = m.map((c) => ({ at: stamp(tz, c.created_at), mood: moodOf(c.mood).label, mindset: mindsetOf(c.mindset).label, intensity: c.intensity ?? "", note: c.note ?? "" }));
-    body = format === "csv"
-      ? csv(["Date", "Mood", "Mindset", "Intensity (1-5)", "Note"], mapped.map(Object.values))
-      : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, checkins: mapped }, null, 2);
+    body = csv(["Date", "Mood", "Mindset", "Intensity (1-5)", "Note"], mapped.map(Object.values));
   } else if (kind === "stats" && format !== "pdf") {
     const d = await loadDaily(auth, from, to);
     rows = d.length;
-    body = format === "csv"
-      ? csv(["Day", "Focus minutes", "Focus sessions", "Tasks completed", "Tasks created", "Check-ins"], d.map((r) => [r.day, r.focus_minutes, r.focus_sessions, r.tasks_completed, r.tasks_created, r.checkins]))
-      : JSON.stringify({ exportedAt: new Date(now).toISOString(), timezone: tz, range: { from, to }, summary: (await summary(auth, { range: "custom", from, to })).overview, days: d }, null, 2);
-  } else if (format === "json") {
-    // kind === "full"
-    const profile = await one<Record<string, unknown>>("SELECT display_name, avatar_key, school, course, year_level, daily_goal_minutes, timezone FROM user_profiles WHERE user_id = ?", auth.user.id);
-    const subjects = await all("SELECT name, color, icon, created_at FROM subjects WHERE user_id = ? ORDER BY name", auth.user.id);
-    const tasks = [];
-    for (const t of await loadTasks(auth, start, end)) {
-      tasks.push({
-        ...t, status: derivedStatus(t, now), due: stamp(tz, t.due_at),
-        checklist: await all("SELECT label, done FROM task_checklist_items WHERE task_id = ? ORDER BY sort_order", t.id),
-      });
-    }
-    const data = {
-      product: "ATHENTIV FocusDock",
-      exportedAt: new Date(now).toISOString(),
-      timezone: tz,
-      range: { from, to },
-      account: { username: auth.user.username, accountType: auth.user.account_type, createdAt: new Date(auth.user.created_at).toISOString() },
-      profile,
-      subjects,
-      tasks,
-      pomodoroSessions: access.standOwner ? await loadSessions(auth, start, end) : undefined,
-      moodCheckins: includeMood ? await loadMood(auth, start, end) : undefined,
-      dailySummaries: await loadDaily(auth, from, to),
-    };
-    rows = tasks.length;
-    body = JSON.stringify(data, null, 2);
+    body = csv(["Day", "Focus minutes", "Focus sessions", "Tasks completed", "Tasks created", "Check-ins"], d.map((r) => [r.day, r.focus_minutes, r.focus_sessions, r.tasks_completed, r.tasks_created, r.checkins]));
   } else {
     // PDF report (stats or full)
     const r = await reportPdf(auth, from, to, kind === "full", access.standOwner, includeMood);
@@ -161,7 +127,7 @@ export async function buildExport(auth: Auth, kind: ExportKind, format: ExportFo
     "INSERT INTO export_requests (user_id, kind, format, range_start, range_end, status, row_count, created_at) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)",
     auth.user.id, kind, format, start, end, rows, now,
   );
-  const contentType = format === "csv" ? "text/csv; charset=utf-8" : format === "pdf" ? "application/pdf" : "application/json; charset=utf-8";
+  const contentType = format === "csv" ? "text/csv; charset=utf-8" : "application/pdf";
   return { filename: `${base}.${format}`, contentType, body };
 }
 
@@ -182,7 +148,7 @@ async function reportPdf(auth: Auth, from: string, to: string, full: boolean, st
   const tiles: [string, string][] = [
     ...(standOwner ? ([["Focus minutes", String(o.focusMinutes)], ["Focus sessions", String(o.focusSessions)]] as [string, string][]) : []),
     ["Tasks completed", String(o.tasksCompleted)],
-    ["Completion rate", o.completionRate === null ? "—" : `${o.completionRate}%`],
+    ["Completion rate", o.completionRate === null ? "No tasks" : `${o.completionRate}%`],
     ["Open (pending)", String(o.pendingTasks)],
     ["Overdue now", String(o.overdueTasks)],
     ["Missed deadlines", String(o.missedDeadlines)],
@@ -244,8 +210,8 @@ async function reportPdf(auth: Auth, from: string, to: string, full: boolean, st
     pdf.heading(`Tasks (${tasks.length})`);
     pdf.table(
       ["Title", "Subject", "Due", "Effort", "Status"],
-      tasks.map((t) => [t.title, t.subject ?? "—", stamp(auth.tz, t.due_at), t.effort, derivedStatus(t, auth.now).replace("_", " ")]),
-      [0, 190, 300, 400, 440],
+      tasks.map((t) => [t.title, t.subject ?? "None", stamp(auth.tz, t.due_at), effortOf(t.effort).label, derivedStatus(t, auth.now).replace("_", " ")]),
+      [0, 160, 300, 388, 448],
     );
     if (standOwner) {
       const sessions = await loadSessions(auth, start, end);

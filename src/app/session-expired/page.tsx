@@ -17,7 +17,7 @@ function Expired() {
       <p className="mt-2 max-w-xs text-sm text-muted">
         {replaced
           ? "FocusDock stand accounts can be active on one phone at a time. You were signed out here because your account was used on another device."
-          : "For your security, you've been signed out. Sign in again to pick up where you left off — your data is safe."}
+          : "For your security, you've been signed out. Sign in again to continue. Your data is safe."}
       </p>
       <ButtonLink href="/login" size="lg" className="mt-8 w-full max-w-xs">
         Sign in again

@@ -60,6 +60,8 @@ export async function accessFor(auth: Auth) {
     standOwner,
     premium,
     isPremium,
+    // Accounts without a stand have no Freemium tier: they need an active Premium plan.
+    subscriptionRequired: !standOwner && !isPremium,
     nfc,
     features: {
       // Stand-only features: never unlocked by Premium alone.
@@ -85,6 +87,20 @@ export async function accessFor(auth: Auth) {
   };
 }
 export type Access = Awaited<ReturnType<typeof accessFor>>;
+
+/**
+ * Accounts without a FocusDock stand can only use the app with an active Premium plan.
+ * Stand owners keep the Freemium tier. Their data is never deleted; access returns on renewal.
+ */
+export async function requireActivePlan(auth: Auth) {
+  if (auth.user.account_type === "standard" && !(await isPremium(auth.user.id, auth.now))) {
+    throw err.forbidden(
+      "SUBSCRIPTION_REQUIRED",
+      "Accounts without a FocusDock stand need an active Premium plan. Choose a plan to continue.",
+      { feature: "ATHENTIV FocusDock" },
+    );
+  }
+}
 
 export function requireStandOwner(auth: Auth) {
   if (auth.user.account_type !== "stand_owner") {

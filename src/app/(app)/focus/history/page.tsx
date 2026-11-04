@@ -41,7 +41,7 @@ export default function FocusHistory() {
               <StatTile label="Completed sessions" value={data.stats.completedSessions} />
               <StatTile label="Total focus" value={`${data.stats.totalFocusMinutes}m`} />
               <StatTile label="Average session" value={`${data.stats.averageMinutes}m`} sub={`Longest ${data.stats.longestMinutes}m`} />
-              <StatTile label="Completion rate" value={data.stats.completionRate === null ? "—" : `${data.stats.completionRate}%`} sub={`${data.stats.endedEarly} ended early · ${data.stats.cancelled} cancelled`} />
+              <StatTile label="Completion rate" value={data.stats.completionRate === null ? "None" : `${data.stats.completionRate}%`} sub={`${data.stats.endedEarly} ended early · ${data.stats.cancelled} cancelled`} />
             </div>
           ) : (
             <LockedCard title="Detailed focus statistics" body="See completed-session counts, total focus minutes, averages and your last 20 sessions." feature="Focus statistics" />
@@ -62,7 +62,7 @@ export default function FocusHistory() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-ink tabular">{s.status === "cancelled" ? "—" : `${s.focusedMinutes}m`}</p>
+                    <p className="text-sm font-bold text-ink tabular">{s.status === "cancelled" ? "0m" : `${s.focusedMinutes}m`}</p>
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS[s.status]?.cls ?? ""}`}>{STATUS[s.status]?.label ?? s.status}</span>
                   </div>
                 </div>

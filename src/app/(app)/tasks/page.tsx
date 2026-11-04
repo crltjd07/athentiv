@@ -182,7 +182,7 @@ function TasksPage() {
               <Chip selected={!effort} onClick={() => setEffort(null)}>Any</Chip>
               {EFFORTS.map((e) => (
                 <Chip key={e.key} locked={!premium} selected={effort === e.key} onClick={() => (premium ? setEffort(e.key) : upgrade("Filtering by effort"))}>
-                  {e.key} · {e.label}
+                  {e.label}
                 </Chip>
               ))}
             </div>

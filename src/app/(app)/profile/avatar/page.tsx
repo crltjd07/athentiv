@@ -48,7 +48,7 @@ export default function AvatarPage() {
         <section key={tier} className="mt-4">
           <h2 className="mb-2 flex items-center gap-2 px-1 text-sm font-bold text-ink">
             {tier === "free" ? "Freemium avatars" : "Premium avatars"}
-            {tier === "premium" && !premium && <span className="text-xs font-medium text-muted">— tap to preview</span>}
+            {tier === "premium" && !premium && <span className="text-xs font-medium text-muted">(tap to preview)</span>}
           </h2>
           <div className="grid grid-cols-4 gap-2.5">
             {AVATARS.filter((x) => x.tier === tier).map((x) => {

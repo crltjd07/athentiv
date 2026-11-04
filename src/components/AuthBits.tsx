@@ -53,7 +53,7 @@ export function RecoveryCodeCard({ code }: { code: string }) {
             setCopied(true);
             toast("Recovery code copied");
           } catch {
-            toast("Couldn't copy — please write it down.", "error");
+            toast("Couldn't copy. Please write it down.", "error");
           }
         }}
         className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm"

@@ -12,7 +12,7 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: { default: "ATHENTIV FocusDock", template: "%s · ATHENTIV FocusDock" },
-  description: "ATHENTIV FocusDock — the student focus and deadline companion for your phone and FocusDock stand.",
+  description: "ATHENTIV FocusDock helps students keep track of deadlines and study with focus.",
   applicationName: "ATHENTIV FocusDock",
   appleWebApp: { capable: true, title: "FocusDock", statusBarStyle: "default" },
   formatDetection: { telephone: false },

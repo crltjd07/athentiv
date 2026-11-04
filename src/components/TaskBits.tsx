@@ -15,9 +15,9 @@ export type Task = TaskDTO;
 export function EffortBadge({ effort, withLabel }: { effort: string; withLabel?: boolean }) {
   const e = effortOf(effort);
   return (
-    <span className="inline-flex h-6 min-w-6 items-center justify-center gap-1 rounded-lg px-1.5 text-xs font-bold" style={{ color: e.color, background: e.bg }} title={`${e.label} effort (${e.hint})`}>
-      {e.key}
-      {withLabel && <span className="font-semibold">{e.label}</span>}
+    <span className="inline-flex h-6 shrink-0 items-center justify-center rounded-lg px-2 text-[11px] font-bold" style={{ color: e.color, background: e.bg }} title={`${e.label} effort (${e.hint})`}>
+      {e.label}
+      {withLabel && <span className="ml-1 font-medium">· {e.hint}</span>}
     </span>
   );
 }
@@ -56,19 +56,19 @@ export function TaskCard({ task, onToggle, showProgress, action }: { task: Task;
   const pct = task.checklist.total ? task.checklist.done / task.checklist.total : done ? 1 : 0;
 
   return (
-    <li className={cx("flex items-center gap-3 rounded-[18px] border border-line bg-white p-3 shadow-[var(--shadow-card)] transition-opacity", done && "opacity-70")}>
+    <li className={cx("flex items-center gap-3 rounded-[18px] border p-3 shadow-[var(--shadow-card)] transition-colors", done ? "border-green-100 bg-green-50/60" : "border-line bg-white")}>
       <Link href={`/tasks/${task.id}`} className="flex min-w-0 flex-1 items-center gap-3">
         <SubjectIcon icon={task.subject?.icon} color={task.subject?.color} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <PriorityDot priority={task.priority} />
-            <p className={cx("truncate text-[15px] font-semibold text-ink", done && "line-through decoration-faint")}>{task.title}</p>
+            <p className={cx("truncate text-[15px] font-semibold", done ? "text-muted line-through decoration-slate-500 decoration-2" : "text-ink")}>{task.title}</p>
           </div>
-          <p className={cx("mt-0.5 flex items-center gap-1 truncate text-xs", overdue ? "font-semibold text-red-600" : "text-muted")}>
+          <p className={cx("mt-0.5 flex items-center gap-1 truncate text-xs", overdue ? "font-semibold text-red-600" : done ? "font-semibold text-green-700" : "text-muted")}>
             <span>{taskTypeLabel(task.type)}</span>
             <span>·</span>
             <Clock className="size-3 shrink-0" />
-            <span className="truncate">{done ? "Done" : overdue ? `Overdue · ${fmtRelative(task.dueAt)}` : fmtDue(task.dueAt)}</span>
+            <span className="truncate">{done ? "Completed" : overdue ? `Overdue · ${fmtRelative(task.dueAt)}` : fmtDue(task.dueAt)}</span>
           </p>
           {(task.subject || task.checklist.total > 0 || task.focusMinutes > 0) && (
             <p className="mt-1 flex items-center gap-2 text-[11px] text-faint">

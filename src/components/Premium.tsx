@@ -59,7 +59,7 @@ export function UpgradeProvider({ children }: { children: ReactNode }) {
             </li>
           ))}
         </ul>
-        <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs text-muted">Plans from ₱29/week · Your data is kept if Premium ends</p>
+        <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs text-muted">Plans from ₱29 a week. Your data is kept if your plan ends.</p>
         <div className="mt-5 space-y-2">
           <Button
             full

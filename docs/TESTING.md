@@ -9,7 +9,7 @@ DATABASE_PATH=data/test.db RATE_LIMITS=off pnpm dev -p 3100        # terminal 1
 DATABASE_PATH=data/test.db BASE_URL=http://localhost:3100 pnpm test:api   # terminal 2
 ```
 
-**Latest result: 153 passed, 0 failed** (Node 24.16, Next.js 16.4.3 dev server).
+**Latest result: 165 passed, 0 failed** (Node 24.16, Next.js 16.4.3 dev server).
 
 | # | Scenario | What is verified (highlights) |
 |---|---|---|
@@ -28,7 +28,7 @@ DATABASE_PATH=data/test.db BASE_URL=http://localhost:3100 pnpm test:api   # term
 | 13 | Non-stand restrictions | 7 stand endpoints → `STAND_OWNER_ONLY` while Premium; tapping someone else's stand → `WRONG_OWNER` |
 | 14 | Mood persistence | stored, history, comparison, distribution; Freemium can check in but not view history |
 | 15 | Summary accuracy | focus sessions/minutes equal DB sums; insights quote real numbers; dashboard; achievements |
-| 16 | Data export | CSV/JSON/PDF, attachment header, own-data only, format validation, Freemium refused, CSV formula injection neutralised, export log |
+| 16 | Data export | CSV/PDF, attachment header, JSON removed, own-data only, format validation, Freemium refused, CSV formula injection neutralised, export log |
 | 17 | Unsupported devices | Windows, Linux, Chromebook, iPad, Android tablet → unsupported screen; iPhone & Android phone served |
 | 18 | Data isolation | 9 cross-user operations → 404, foreign subject rejected, lists only own data, anonymous → 401 |
 

@@ -37,7 +37,7 @@ function Login() {
         <>
           New here?{" "}
           <Link href="/register" className="font-semibold text-brand-700">
-            Create a free account
+            Create an account
           </Link>
         </>
       }
@@ -61,7 +61,7 @@ function Login() {
       <div className="mt-6 flex gap-3 rounded-2xl bg-white p-4 text-sm text-ink-2 shadow-[var(--shadow-card)]">
         <Nfc className="mt-0.5 size-5 shrink-0 text-brand-600" />
         <p>
-          <span className="font-semibold text-ink">Stand owners:</span> signing in here works, but Focus and Check-in unlock only after you tap your phone on your FocusDock stand.
+          <span className="font-semibold text-ink">Stand owners:</span> after signing in, tap your phone on your stand to use Focus and Check-in.
         </p>
       </div>
     </AuthScaffold>

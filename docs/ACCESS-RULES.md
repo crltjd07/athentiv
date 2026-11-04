@@ -12,6 +12,10 @@ All checks below are enforced in `src/server/access.ts` and the route handlers. 
 | Check-in, Pomodoro, Stand page | Yes. Check-in and starting a Pomodoro also need an **NFC-verified session** | **Never**, even with Premium (`403 STAND_OWNER_ONLY`) |
 | 30-day Premium trial | Granted automatically on the **first successful NFC verification**, once per account | Not available |
 
+## Plan rule for accounts without a stand (from the November 2026 testing report, P-06)
+
+Accounts without a FocusDock stand have **no free tier**. After creating an account they are taken to the Premium page, and every feature is closed (`403 SUBSCRIPTION_REQUIRED`, enforced on the server) until they buy a plan. If the plan ends, they are sent back to the Premium page; their data is kept and returns when they renew. Stand owners keep the Freemium tier as before.
+
 ## Baseline rules preserved from the brief
 
 - Premade stand-owner accounts and free registration for non-stand users
@@ -56,7 +60,7 @@ The brief refers to *"FocusDock — Stand Owner vs Non-Stand User Plans and Feat
 | Open tasks | 3 at a time (server-enforced; completing or deleting frees a slot; re-opening counts) | Unlimited | |
 | Task filters & sort | Status, type, search; sort by due date / created | + subject, effort; sort by effort / subject | |
 | Summary | Current week, basic overview, insights | + month, custom range, previous-period comparison, subject & type breakdowns | |
-| Exports (CSV / PDF / JSON) | — | ✓ with date range | |
+| Exports (CSV / PDF) | — | ✓ with date range | |
 | Pomodoro presets | 25/5 | + 50/10, custom (focus 1–180, break 1–60) | ✓ |
 | Focus sessions / day | 4 | Unlimited | ✓ |
 | Pomodoro history | Last 5, no stats | Last 20 + statistics | ✓ |

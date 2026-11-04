@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Award, Bell, BookMarked, CalendarDays, Crown, HeartPulse, Info, LogOut, Nfc, Pencil, Shield, Smile } from "lucide-react";
 import { api } from "@/lib/api";
@@ -11,11 +12,35 @@ import { PremiumBadge } from "@/components/Premium";
 import { useConfirm } from "@/components/Sheet";
 import { Card, ListLink, ProgressBar, SectionTitle } from "@/components/ui";
 
+const SCROLL_KEY = "fd:profile-scroll";
+
 export default function Profile() {
   const { me } = useMe();
   const router = useRouter();
   const confirm = useConfirm();
   const p = me.access.premium;
+
+  // Coming back from a Profile sub-screen returns to the same spot in the menu.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(SCROLL_KEY) ?? "null") as { y: number; t: number } | null;
+      sessionStorage.removeItem(SCROLL_KEY);
+      if (saved && Date.now() - saved.t < 10 * 60_000) {
+        requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, saved.y)));
+      }
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  function rememberScroll(e: React.MouseEvent) {
+    if (!(e.target as Element).closest("a")) return;
+    try {
+      sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ y: window.scrollY, t: Date.now() }));
+    } catch {
+      /* storage unavailable */
+    }
+  }
 
   async function logout() {
     if (!(await confirm({ title: "Sign out?", body: me.access.standOwner ? "You'll need to sign in and tap your stand again to use Focus." : undefined, confirmLabel: "Sign out" }))) return;
@@ -24,7 +49,7 @@ export default function Profile() {
   }
 
   return (
-    <main className="mx-auto max-w-[480px] px-4 pt-safe">
+    <main className="mx-auto max-w-[480px] px-4 pt-safe" onClickCapture={rememberScroll}>
       <h1 className="pt-4 text-[26px] font-extrabold tracking-tight text-ink">Profile</h1>
 
       <Card className="mt-3 p-5 text-center">
@@ -83,7 +108,7 @@ export default function Profile() {
         <ListLink href="/notifications" icon={<Bell className="size-4" />} label="Notifications" detail={me.unreadNotifications ? `${me.unreadNotifications} new` : undefined} />
         <ListLink href="/settings/notifications" icon={<Bell className="size-4" />} label="Notification preferences" />
         <ListLink href="/settings" icon={<Shield className="size-4" />} label="Account & security" />
-        <ListLink href="/settings#about" icon={<Info className="size-4" />} label="About ATHENTIV FocusDock" />
+        <ListLink href="/about" icon={<Info className="size-4" />} label="About ATHENTIV FocusDock" />
         <ListLink icon={<LogOut className="size-4" />} label="Sign out" onClick={logout} danger />
       </Card>
       <p className="mt-6 text-center text-xs text-faint">ATHENTIV FocusDock · by ATHENTIV</p>

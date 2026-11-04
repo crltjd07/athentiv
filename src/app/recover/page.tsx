@@ -34,7 +34,7 @@ export default function Recover() {
 
   if (newCode) {
     return (
-      <AuthScaffold title="Password updated" subtitle="You've been signed out everywhere. Here's your new recovery code — the old one no longer works.">
+      <AuthScaffold title="Password updated" subtitle="You've been signed out on all devices. Here's your new recovery code. The old one no longer works.">
         <RecoveryCodeCard code={newCode} />
         <ButtonLink href="/login" full size="lg" className="mt-6">
           Sign in

@@ -117,7 +117,7 @@ No sticker? Opening the NFC tag URL in the phone's browser does exactly the same
 
 Later visits: open the address, sign in, and **tap the stand** before starting a focus session.
 
-Non-stand accounts: tap **Create a free account** on the live site.
+Non-stand accounts: tap **Create an account** on the live site, then choose a Premium plan (test mode) to start using the app.
 
 ## Updating & maintenance
 

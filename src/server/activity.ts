@@ -132,7 +132,7 @@ export async function checkAchievements(userId: number, tz: string, standOwner: 
     if (!earned[a.key]) continue;
     const r = await run("INSERT OR IGNORE INTO user_achievements (user_id, key, unlocked_at) VALUES (?, ?, ?)", userId, a.key, now);
     if (r.changes) {
-      await notify(userId, { kind: "achievement", title: `Achievement unlocked: ${a.title}`, body: a.desc + " — nicely done!", link: "/profile/achievements", dedupe: `ach:${a.key}` });
+      await notify(userId, { kind: "achievement", title: `Achievement unlocked: ${a.title}`, body: `You earned the "${a.title}" badge. Nicely done!`, link: "/profile/achievements", dedupe: `ach:${a.key}` });
     }
   }
 }
@@ -178,7 +178,7 @@ export async function sweepNotifications(auth: Auth, force = false) {
       await notify(user.id, { kind: "subscription", title: "Premium is ending soon", body: `Your Premium access ends ${fmtWhen(tz, p.until)}. Your data stays safe either way.`, link: "/premium", dedupe: `prem-exp:${p.until}` });
     }
     if (!p.active && p.lastEndedAt && now - p.lastEndedAt < 14 * TIME.DAY) {
-      await notify(user.id, { kind: "subscription", title: "Premium has ended", body: "You're back on Freemium. All your tasks and history are kept — renew any time to unlock everything again.", link: "/premium", dedupe: `prem-end:${p.lastEndedAt}` });
+      await notify(user.id, { kind: "subscription", title: "Premium has ended", body: user.account_type === "stand_owner" ? "You're back on Freemium. Your tasks and history are kept. Renew any time." : "Renew your plan to keep using ATHENTIV FocusDock. Your tasks and history are kept.", link: "/premium", dedupe: `prem-end:${p.lastEndedAt}` });
     }
   }
   if (prefs.daily_summary) {

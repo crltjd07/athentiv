@@ -12,7 +12,7 @@ export default function Offline() {
         <WifiOff className="size-9" />
       </div>
       <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-ink">You&apos;re offline</h1>
-      <p className="mt-2 max-w-xs text-sm text-muted">ATHENTIV FocusDock needs a connection to save your tasks and sessions. Your running timer is safe — it&apos;s tracked on the server.</p>
+      <p className="mt-2 max-w-xs text-sm text-muted">ATHENTIV FocusDock needs an internet connection to save your work. A running timer keeps counting.</p>
       <Button size="lg" className="mt-8 w-full max-w-xs" onClick={() => window.location.replace("/home")}>
         Try again
       </Button>

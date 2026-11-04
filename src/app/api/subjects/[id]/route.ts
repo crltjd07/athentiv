@@ -1,6 +1,6 @@
 import { isUniqueViolation, one, run, tx } from "@/server/db";
 import { err, idParam, ok, readJson, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { subjectSchema } from "@/shared/schemas";
 import { deleteSubject, listSubjects } from "@/server/subjects";
 
@@ -13,7 +13,7 @@ async function owned(userId: number, id: number) {
 }
 
 export const PATCH = route<Ctx>(async (req, ctx) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const id = idParam((await ctx.params).id);
   const s = await owned(auth.user.id, id);
   const input = await readJson(req, subjectSchema.partial());
@@ -28,7 +28,7 @@ export const PATCH = route<Ctx>(async (req, ctx) => {
 
 /** Deleting a subject keeps its tasks; they simply lose the subject label. */
 export const DELETE = route<Ctx>(async (_req, ctx) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const id = idParam((await ctx.params).id);
   await owned(auth.user.id, id);
   await tx(() => deleteSubject(auth.user.id, id));

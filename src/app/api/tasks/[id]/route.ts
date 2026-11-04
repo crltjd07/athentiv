@@ -1,6 +1,6 @@
 import { all, run, tx } from "@/server/db";
 import { idParam, ok, readJson, route } from "@/server/http";
-import { requireAuth } from "@/server/auth";
+import { requireMember } from "@/server/auth";
 import { isPremium } from "@/server/access";
 import { assertOwnedSubject, deleteTask, getOwnedTask, serializeTask, statusHistory } from "@/server/tasks";
 import { taskPatchSchema } from "@/shared/schemas";
@@ -8,7 +8,7 @@ import { taskPatchSchema } from "@/shared/schemas";
 type Ctx = { params: Promise<{ id: string }> };
 
 export const GET = route<Ctx>(async (_req, ctx) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const task = await getOwnedTask(auth, idParam((await ctx.params).id));
   const checklist = (await all<{ id: number; label: string; done: number; sort_order: number }>(
     "SELECT id, label, done, sort_order FROM task_checklist_items WHERE task_id = ? ORDER BY sort_order, id", task.id,
@@ -29,7 +29,7 @@ export const GET = route<Ctx>(async (_req, ctx) => {
 });
 
 export const PATCH = route<Ctx>(async (req, ctx) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const id = idParam((await ctx.params).id);
   const input = await readJson(req, taskPatchSchema);
   const task = await tx(async () => {
@@ -53,7 +53,7 @@ export const PATCH = route<Ctx>(async (req, ctx) => {
 
 /** Deleting frees an open-task slot. Linked focus sessions are kept as "General study". */
 export const DELETE = route<Ctx>(async (_req, ctx) => {
-  const auth = await requireAuth();
+  const auth = await requireMember();
   const id = idParam((await ctx.params).id);
   await tx(async () => deleteTask(auth, await getOwnedTask(auth, id)));
   return ok({ ok: true });

@@ -104,7 +104,7 @@ export function settleSandbox(userId: number, id: number, outcome: "success" | "
     await notify(userId, {
       kind: "subscription",
       title: "Premium activated (test mode)",
-      body: `${plan.name} was added to your account. This was a sandbox payment — no real money was charged.`,
+      body: `${plan.name} was added to your account. This was a test payment. No real money was charged.`,
       link: "/premium",
       dedupe: `txn:${id}`,
     });

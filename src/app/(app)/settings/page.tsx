@@ -7,7 +7,6 @@ import { useApi } from "@/lib/useApi";
 import { useMe } from "@/lib/me";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { PasswordInput, RecoveryCodeCard } from "@/components/AuthBits";
-import { Wordmark } from "@/components/Brand";
 import { PageHeader } from "@/components/Nav";
 import { Sheet } from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
@@ -90,19 +89,11 @@ export default function Settings() {
       <SectionTitle>Account</SectionTitle>
       <Card className="space-y-1 p-4 text-sm text-ink-2">
         <p>Username: <b>@{me.user.username}</b></p>
-        <p>Account type: <b>{me.access.standOwner ? "Stand owner (premade)" : "Standard (self-registered)"}</b></p>
+        <p>Account type: <b>{me.access.standOwner ? "Stand owner" : "Standard"}</b></p>
         <p>Created: <b>{fmtDate(me.user.createdAt)}</b></p>
-        <p>Plan: <b>{me.access.isPremium ? `Premium until ${fmtDate(me.access.premium.until!)}` : "Freemium"}</b></p>
+        <p>Plan: <b>{me.access.isPremium ? `Premium until ${fmtDate(me.access.premium.until!)}` : me.access.standOwner ? "Freemium" : "No active plan"}</b></p>
       </Card>
 
-      <section id="about" className="mt-8 rounded-[20px] bg-white p-5 text-center shadow-[var(--shadow-card)]">
-        <Wordmark className="justify-center" />
-        <p className="mt-3 text-sm text-ink-2">
-          ATHENTIV FocusDock helps students organise deadlines, check in with how they feel, and study in focused sessions with the FocusDock phone stand.
-        </p>
-        <p className="mt-3 text-xs text-muted">A product by ATHENTIV · Made for Android and iPhone</p>
-        <p className="mt-1 text-[11px] text-faint">Mood check-ins are for personal reflection only and are not a medical or psychological service.</p>
-      </section>
 
       <Sheet open={pwOpen} onClose={() => setPwOpen(false)} title="Change password">
         <form onSubmit={changePassword} className="space-y-4">
