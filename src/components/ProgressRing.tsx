@@ -5,7 +5,7 @@ export function ProgressRing({
   size = 88,
   stroke = 9,
   color = "#1F48D4",
-  track = "#E3EAFF",
+  track = "var(--chart-track)",
   children,
   className,
 }: {
@@ -23,7 +23,7 @@ export function ProgressRing({
   return (
     <div className={className} style={{ position: "relative", width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} style={{ stroke: track }} />
         <circle
           cx={size / 2}
           cy={size / 2}

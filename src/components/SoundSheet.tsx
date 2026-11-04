@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CloudRain, ExternalLink, Fan, Flame, Pause, Play, Radio, Trash2, Trees, Volume2, Waves, Wind, type LucideIcon } from "lucide-react";
+import { CloudLightning, CloudRain, Droplets, ExternalLink, Fan, Flame, Pause, Play, Trash2, Trees, Volume2, Waves, Wind, type LucideIcon } from "lucide-react";
 import { ambient } from "@/lib/ambient";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
@@ -11,7 +11,10 @@ import { LockIcon, useApiErrorHandler, useUpgrade } from "./Premium";
 import { Sheet } from "./Sheet";
 import { Button, Input, cx } from "./ui";
 
-const ICONS: Record<SoundKey, LucideIcon> = { rain: CloudRain, ocean: Waves, forest: Trees, fireplace: Flame, fan: Fan, white: Radio, brown: Wind, pink: Radio };
+const ICONS: Record<SoundKey, LucideIcon> = { rain: CloudRain, ocean: Waves, forest: Trees, fireplace: Flame, fan: Fan, thunderstorm: CloudLightning, brown: Wind, riverside: Droplets };
+// "Thunderstorm" is wider than a tile on small phones (360 px and below). A soft hyphen lets it
+// break as "Thunder-storm" only when it doesn't fit; on wider screens it stays on one line.
+const TILE_LABEL: Partial<Record<SoundKey, string>> = { thunderstorm: "Thunder\u00ADstorm" };
 
 type AudioPrefs = { soundKey: SoundKey; volume: number; playlists: { id: number; type: string; label: string; url: string; embedUrl: string }[] };
 
@@ -69,9 +72,9 @@ export function SoundSheet({ open, onClose }: { open: boolean; onClose: () => vo
           const active = state.sound === s.key && state.playing;
           const locked = s.tier === "premium" && !premium;
           return (
-            <button key={s.key} onClick={() => choose(s.key)} aria-pressed={active} className={cx("relative flex flex-col items-center gap-1 rounded-2xl border py-3 text-[11px] font-semibold", active ? "border-brand-700 bg-brand-700 text-white" : "border-line bg-white text-ink-2", locked && "text-faint")}>
+            <button key={s.key} onClick={() => choose(s.key)} aria-pressed={active} className={cx("relative flex flex-col items-center gap-1 rounded-2xl border px-1 py-3 text-center text-[11px] leading-tight font-semibold", active ? "border-brand-700 bg-brand-700 text-white" : "border-line bg-white text-ink-2", locked && "text-faint")}>
               <Icon className="size-5" />
-              {s.label}
+              <span>{TILE_LABEL[s.key] ?? s.label}</span>
               {locked && <LockIcon className="absolute top-1 right-1 size-4" />}
             </button>
           );

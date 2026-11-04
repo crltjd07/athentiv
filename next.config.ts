@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
     workerThreads: false,
   },
   poweredByHeader: false,
+  // Development only: lets phones on the home Wi-Fi load the dev server even when this PC's
+  // local IP changes (e.g. 192.168.0.115 → 192.168.0.111). Has no effect on production builds.
+  allowedDevOrigins: ["192.168.*.*"],
   // Migrations are read from disk at runtime, so ship them with every server function (Vercel).
   outputFileTracingIncludes: {
     "/**": ["./db/migrations/*.sql"],

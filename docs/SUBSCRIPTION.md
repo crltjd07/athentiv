@@ -1,6 +1,6 @@
 # Subscription model & payments
 
-> **Proposed prices, not live.** Payments currently run in a sandbox. No gateway is connected and no money moves. Every sandbox transaction is stored with `is_test = 1` and labelled "test payment" in the UI.
+> **Proposed prices, not live.** Payments currently run in a sandbox. No gateway is connected and no money moves. Every sandbox transaction is stored with `is_test = 1`. The UI no longer shows test-mode labels: checkout offers **Confirm payment** and **Cancel**.
 
 ## Proposed pricing (Philippine student market)
 

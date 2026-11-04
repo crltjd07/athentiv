@@ -54,7 +54,7 @@ export default function Onboarding() {
       }
       await api("/api/profile", { method: "PATCH", body: { avatarKey: avatar, dailyGoalMinutes: goal, onboarded: true } });
       await refresh();
-      toast(`Welcome to ATHENTIV FocusDock, ${me.profile.displayName}!`);
+      toast(`Welcome to ATHENTIV FocusDock, ${me.profile.displayName}.`);
       router.replace(me.access.standOwner && !me.access.nfc.verified ? "/stand" : "/home");
     } catch (e) {
       toast(e instanceof Error ? e.message : "Couldn't save.", "error");

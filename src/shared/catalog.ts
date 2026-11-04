@@ -108,12 +108,12 @@ export const SUBJECT_PRESETS: { name: string; icon: SubjectIcon; color: string }
 export const SOUNDS = [
   { key: "rain", label: "Rain", tier: "free" },
   { key: "brown", label: "Brown noise", tier: "free" },
-  { key: "white", label: "White noise", tier: "free" },
+  { key: "thunderstorm", label: "Thunderstorm", tier: "free" },
   { key: "ocean", label: "Ocean waves", tier: "premium" },
   { key: "forest", label: "Forest", tier: "premium" },
   { key: "fireplace", label: "Fireplace", tier: "premium" },
   { key: "fan", label: "Fan", tier: "premium" },
-  { key: "pink", label: "Pink noise", tier: "premium" },
+  { key: "riverside", label: "Riverside", tier: "premium" },
 ] as const satisfies readonly { key: string; label: string; tier: Tier }[];
 export type SoundKey = (typeof SOUNDS)[number]["key"];
 export const SOUND_KEYS = SOUNDS.map((s) => s.key) as [SoundKey, ...SoundKey[]];

@@ -37,7 +37,7 @@ export default function Home() {
   async function toggle(t: Task) {
     try {
       await api(`/api/tasks/${t.id}/status`, { body: { status: t.status === "completed" ? "pending" : "completed" } });
-      if (t.status !== "completed") toast("Task completed. Nice work! 🎉");
+      if (t.status !== "completed") toast("Task completed");
       await reload();
     } catch (e) {
       onError(e);

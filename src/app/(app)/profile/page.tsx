@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Award, Bell, BookMarked, CalendarDays, Crown, HeartPulse, Info, LogOut, Nfc, Pencil, Shield, Smile } from "lucide-react";
+import { Award, Bell, BookMarked, BookOpen, CalendarDays, Crown, HeartPulse, Info, LogOut, Moon, Nfc, Pencil, Shield, Smile } from "lucide-react";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/me";
+import { useTheme } from "@/lib/theme";
 import { daysLeftLabel, fmtDate } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { PremiumBadge } from "@/components/Premium";
 import { useConfirm } from "@/components/Sheet";
-import { Card, ListLink, ProgressBar, SectionTitle } from "@/components/ui";
+import { Card, ListLink, ProgressBar, SectionTitle, Toggle } from "@/components/ui";
 
 const SCROLL_KEY = "fd:profile-scroll";
 
@@ -18,6 +19,7 @@ export default function Profile() {
   const { me } = useMe();
   const router = useRouter();
   const confirm = useConfirm();
+  const [theme, setTheme] = useTheme();
   const p = me.access.premium;
 
   // Coming back from a Profile sub-screen returns to the same spot in the menu.
@@ -108,6 +110,13 @@ export default function Profile() {
         <ListLink href="/notifications" icon={<Bell className="size-4" />} label="Notifications" detail={me.unreadNotifications ? `${me.unreadNotifications} new` : undefined} />
         <ListLink href="/settings/notifications" icon={<Bell className="size-4" />} label="Notification preferences" />
         <ListLink href="/settings" icon={<Shield className="size-4" />} label="Account & security" />
+        <div className="flex items-center pl-4">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><Moon className="size-4" /></span>
+          <div className="-ml-1 flex-1">
+            <Toggle label="Dark mode" description="Saved on this phone." checked={theme === "dark"} onChange={(on) => setTheme(on ? "dark" : "light")} />
+          </div>
+        </div>
+        <ListLink href="/manual" icon={<BookOpen className="size-4" />} label="User manual" />
         <ListLink href="/about" icon={<Info className="size-4" />} label="About ATHENTIV FocusDock" />
         <ListLink icon={<LogOut className="size-4" />} label="Sign out" onClick={logout} danger />
       </Card>

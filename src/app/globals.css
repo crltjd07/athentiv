@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* `dark:` utilities follow the in-app Dark mode setting (a `dark` class on <html>), not the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ATHENTIV FocusDock design tokens — derived from the reference: deep royal blue primary,
    soft blue-grey canvas, white rounded cards with hairline borders, pill chips. */
 @theme {
@@ -64,6 +67,163 @@ html,
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
+}
+
+/* User manual lists (src/app/manual). Markers are CSS only: numbered brand circles for steps,
+   small check marks for "good to know" points. No images or emoji. */
+@layer components {
+  .manual-steps { counter-reset: step; }
+  .manual-steps > li { counter-increment: step; position: relative; padding-left: 2.5rem; min-height: 1.75rem; }
+  .manual-steps > li + li { margin-top: 0.875rem; }
+  .manual-steps > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 0;
+    display: grid; place-items: center;
+    width: 1.75rem; height: 1.75rem; border-radius: 9999px;
+    background: var(--color-brand-700); color: #fff;
+    font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .dark .manual-steps > li::before { background: var(--color-brand-500); }
+
+  .manual-tips > li { position: relative; padding-left: 1.875rem; }
+  .manual-tips > li + li { margin-top: 0.75rem; }
+  .manual-tips > li::before {
+    content: "";
+    position: absolute; left: 0; top: 0.2rem;
+    width: 1.125rem; height: 1.125rem; border-radius: 9999px;
+    background: var(--color-brand-50);
+  }
+  .manual-tips > li::after {
+    content: "";
+    position: absolute; left: 0.375rem; top: 0.4rem;
+    width: 0.375rem; height: 0.5625rem;
+    border: solid var(--color-brand-700); border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .dark .manual-tips > li::before { background: var(--dk-brand-tint-strong); }
+  .dark .manual-tips > li::after { border-color: var(--dk-brand-text); }
+}
+
+/* Landing hero: fills the screen below the sticky nav (56px bar + 1px border + safe-area top). */
+.hero-fill { min-height: calc(100svh - 57px - max(env(safe-area-inset-top), 12px)); }
+/* Landing hero panel: a soft brand tint that fades into the card colour. */
+.hero-panel {
+  background:
+    radial-gradient(120% 70% at 50% 0%, var(--color-brand-100) 0%, transparent 70%),
+    linear-gradient(180deg, var(--color-brand-50) 0%, var(--color-card) 100%);
+}
+.dark .hero-panel {
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgb(91 127 242 / 0.22) 0%, transparent 70%),
+    linear-gradient(180deg, rgb(91 127 242 / 0.08) 0%, var(--color-card) 100%);
+}
+
+/* Chart tracks and highlights (used through inline styles, so they follow the theme). */
+:root {
+  --chart-track: #e3eaff;
+  --chart-track-soft: #eef2f8;
+  --chart-highlight: #0f2e8f;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Dark mode. Turned on from Profile → Settings → Dark mode, which adds `dark` to <html>.
+   The design tokens are redefined, and the light-only palette utilities used across the app are
+   remapped to dark equivalents. `:where(.dark)` keeps the specificity of a single class, so
+   state variants such as `active:` still win over these base remaps.
+   --------------------------------------------------------------------------------------------- */
+.dark {
+  color-scheme: dark;
+  --color-ink: #e7ebf4;
+  --color-ink-2: #c4cbda;
+  --color-muted: #97a3ba;
+  --color-faint: #6f7b93;
+  --color-line: #263147;
+  --color-canvas: #0b1120;
+  --color-card: #141c2e;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px rgb(0 0 0 / 0.25);
+  --shadow-float: 0 10px 30px rgb(0 0 0 / 0.45);
+
+  --chart-track: #24304a;
+  --chart-track-soft: #1e283d;
+  --chart-highlight: #8ea9fb;
+
+  /* Raised surfaces (inputs on sheets, chips) and soft tints. */
+  --dk-raised: #1b2439;
+  --dk-raised-2: #222c43;
+  --dk-brand-tint: rgb(91 127 242 / 0.16);
+  --dk-brand-tint-strong: rgb(91 127 242 / 0.26);
+  --dk-brand-text: #9db5ff;
+}
+
+@layer utilities {
+  /* Surfaces */
+  :where(.dark) .bg-white { background-color: var(--color-card); }
+  :where(.dark) .bg-white\/95 { background-color: rgb(20 28 46 / 0.95); }
+  :where(.dark) .bg-slate-50 { background-color: var(--dk-raised); }
+  :where(.dark) .bg-slate-100 { background-color: var(--dk-raised-2); }
+  :where(.dark) .bg-slate-200,
+  :where(.dark) .bg-slate-200\/70 { background-color: #2a3550; }
+  :where(.dark) .bg-slate-300 { background-color: #3a4763; }
+  :where(.dark) .bg-black\/5 { background-color: rgb(255 255 255 / 0.06); }
+  :where(.dark) .bg-ink { background-color: #2a3550; }
+  :where(.dark) .to-white { --tw-gradient-to: var(--color-card); }
+
+  /* Brand tints */
+  :where(.dark) .bg-brand-50,
+  :where(.dark) .bg-brand-50\/40,
+  :where(.dark) .bg-brand-50\/50,
+  :where(.dark) .bg-brand-50\/60,
+  :where(.dark) .bg-brand-50\/70 { background-color: var(--dk-brand-tint); }
+  :where(.dark) .bg-brand-100,
+  :where(.dark) .bg-brand-200 { background-color: var(--dk-brand-tint-strong); }
+  :where(.dark) .border-brand-100,
+  :where(.dark) .border-brand-200 { border-color: rgb(91 127 242 / 0.35); }
+  :where(.dark) .border-brand-600,
+  :where(.dark) .border-brand-700 { border-color: var(--color-brand-500); }
+  :where(.dark) .ring-brand-100 { --tw-ring-color: rgb(91 127 242 / 0.3); }
+  :where(.dark) .text-brand-500,
+  :where(.dark) .text-brand-600,
+  :where(.dark) .text-brand-700,
+  :where(.dark) .text-brand-800 { color: var(--dk-brand-text); }
+  :where(.dark) .border-slate-300 { border-color: #46526d; }
+  :where(.dark) .text-slate-600 { color: var(--color-ink-2); }
+  :where(.dark) .decoration-slate-500 { text-decoration-color: var(--color-faint); }
+
+  /* Status tints: success, warning, danger */
+  :where(.dark) .bg-green-50,
+  :where(.dark) .bg-green-50\/60 { background-color: rgb(34 197 94 / 0.12); }
+  :where(.dark) .border-green-100,
+  :where(.dark) .border-green-200 { border-color: rgb(34 197 94 / 0.3); }
+  :where(.dark) .text-green-600,
+  :where(.dark) .text-green-700,
+  :where(.dark) .text-green-800 { color: #6ee7a0; }
+
+  :where(.dark) .bg-amber-50 { background-color: rgb(245 158 11 / 0.12); }
+  :where(.dark) .bg-amber-100 { background-color: rgb(245 158 11 / 0.2); }
+  :where(.dark) .from-amber-50 { --tw-gradient-from: rgb(245 158 11 / 0.12); }
+  :where(.dark) .border-amber-200,
+  :where(.dark) .border-amber-300 { border-color: rgb(245 158 11 / 0.35); }
+  :where(.dark) .text-amber-600,
+  :where(.dark) .text-amber-700,
+  :where(.dark) .text-amber-800,
+  :where(.dark) .text-amber-900 { color: #fcd34d; }
+
+  :where(.dark) .bg-red-50 { background-color: rgb(239 68 68 / 0.12); }
+  :where(.dark) .border-red-200 { border-color: rgb(239 68 68 / 0.35); }
+  :where(.dark) .text-red-600,
+  :where(.dark) .text-red-700,
+  :where(.dark) .text-red-800 { color: #fca5a5; }
+
+  /* Pressed states that used light tints */
+  :where(.dark) .active\:bg-white:active,
+  :where(.dark) .active\:bg-black\/5:active { background-color: rgb(255 255 255 / 0.08); }
+  :where(.dark) .active\:bg-slate-50:active { background-color: var(--dk-raised-2); }
+  :where(.dark) .active\:bg-brand-50:active { background-color: var(--dk-brand-tint-strong); }
+  :where(.dark) .active\:bg-red-50:active { background-color: rgb(239 68 68 / 0.2); }
+  :where(.dark) .disabled\:bg-brand-300:disabled { background-color: #2c3c6e; }
+  :where(.dark) .focus-within\:ring-brand-100:focus-within,
+  :where(.dark) .focus\:ring-brand-100:focus { --tw-ring-color: rgb(91 127 242 / 0.3); }
 }
 
 body {

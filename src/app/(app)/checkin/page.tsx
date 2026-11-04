@@ -152,9 +152,12 @@ function CheckIn() {
       {mood && (
         <div className="mt-4 animate-fade-up">
           <p className="mb-2 px-1 text-sm font-semibold text-ink">How strongly? <span className="font-normal text-muted">(optional)</span></p>
-          <div className="flex gap-1.5">
+          {/* Buttons grow from their label width (flex-auto, not flex-1), so every label gets the
+              same side padding; longer labels such as "Moderately" are no longer squeezed.
+              They wrap onto a second line only on screens narrower than about 340 px. */}
+          <div className="flex flex-wrap gap-1.5">
             {INTENSITY.map((l, i) => (
-              <button key={l} onClick={() => setIntensity(intensity === i + 1 ? null : i + 1)} className={cx("h-9 flex-1 rounded-full text-[11px] font-semibold", intensity === i + 1 ? "bg-brand-700 text-white" : "bg-white text-ink-2 border border-line")}>
+              <button key={l} aria-pressed={intensity === i + 1} onClick={() => setIntensity(intensity === i + 1 ? null : i + 1)} className={cx("h-9 flex-auto whitespace-nowrap rounded-full border px-1.5 text-[11px] font-semibold", intensity === i + 1 ? "border-brand-700 bg-brand-700 text-white" : "border-line bg-white text-ink-2")}>
                 {l}
               </button>
             ))}

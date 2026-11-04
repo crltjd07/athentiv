@@ -42,7 +42,7 @@ export default function Register() {
 
   if (code) {
     return (
-      <AuthScaffold title="You're in! 🎉" subtitle="One last thing before you start.">
+      <AuthScaffold title="Account created" subtitle="One last thing before you start.">
         <RecoveryCodeCard code={code} />
         <Button full size="lg" className="mt-6" onClick={() => router.replace("/premium")}>
           I&apos;ve saved it

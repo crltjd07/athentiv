@@ -55,7 +55,7 @@ export default function TaskDetail() {
     setBusy(true);
     try {
       await api(`/api/tasks/${id}/status`, { body: { status } });
-      if (status === "completed") toast("Task completed! 🎉");
+      if (status === "completed") toast("Task completed");
       await reload();
     } catch (e) {
       if (e instanceof ApiClientError && e.code === "TASK_LIMIT") onError(new ApiClientError(403, "PREMIUM_REQUIRED", e.message, {}, { feature: "Unlimited tasks" }));

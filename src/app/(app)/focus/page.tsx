@@ -62,7 +62,7 @@ function FocusSetup() {
       const r = await api<{ status: string; newSession: boolean; verificationId: number; trialGranted: boolean }>("/api/nfc/verify", { body: proof });
       await refresh();
       await state.reload();
-      toast(r.trialGranted ? "Stand verified. Your 30-day Premium trial has started!" : "Stand verified");
+      toast(r.trialGranted ? "Stand verified. Your 30-day Premium trial has started." : "Stand verified");
       if (r.newSession) router.push(`/checkin?v=${r.verificationId}`);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Couldn't verify the stand.", "error");

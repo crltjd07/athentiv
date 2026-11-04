@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { CircleCheckBig, CircleX, FlaskConical } from "lucide-react";
+import { CircleCheckBig, CircleX } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
 import { useMe } from "@/lib/me";
@@ -15,8 +15,9 @@ import { Button, ButtonLink, Card, ErrorState, PageSkeleton } from "@/components
 type Txn = { transaction: { id: number; planName: string; amountCentavos: number; status: string; isTest: boolean; ref: string; createdAt: number }; premium: { active: boolean; until: number | null } };
 
 /**
- * Sandbox checkout. This screen stands in for a real payment provider's hosted checkout page and
- * is clearly labelled as a simulation — it never collects payment details.
+ * Checkout confirmation. No payment gateway is connected yet: confirming settles the transaction
+ * through the sandbox provider (stored with is_test = 1), and no payment details are collected.
+ * Replace the settle call with the gateway redirect when one is added (see docs/SUBSCRIPTION.md).
  */
 export default function SandboxCheckout() {
   const { id } = useParams<{ id: string }>();
@@ -52,7 +53,6 @@ export default function SandboxCheckout() {
         </div>
         <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-ink">Premium activated</h1>
         <p className="mt-2 text-sm text-muted">{t.planName} is on your account{data.premium.until ? ` until ${fmtDateLong(data.premium.until)}` : ""}.</p>
-        <p className="mt-3 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Test payment. No money was charged.</p>
         <ButtonLink href="/home" size="lg" className="mt-8 w-full max-w-xs">Continue</ButtonLink>
       </main>
     );
@@ -74,21 +74,13 @@ export default function SandboxCheckout() {
   return (
     <main className="mx-auto max-w-[480px] px-4">
       <PageHeader title="Checkout" back="/premium" />
-      <div className="rounded-[20px] border-2 border-dashed border-amber-300 bg-amber-50 p-4 text-amber-900">
-        <p className="flex items-center gap-2 font-bold">
-          <FlaskConical className="size-5" /> SANDBOX · TEST MODE
-        </p>
-        <p className="mt-1 text-sm">
-          This is a test checkout. Choose a result below to try the subscription flow. No money is charged and no card or e-wallet details are collected.
-        </p>
-      </div>
-      <Card className="mt-4 divide-y divide-line">
+      <Card className="mt-2 divide-y divide-line">
         <div className="flex justify-between px-4 py-3 text-sm">
           <span className="text-muted">Plan</span>
           <span className="font-semibold text-ink">{t.planName}</span>
         </div>
         <div className="flex justify-between px-4 py-3 text-sm">
-          <span className="text-muted">Amount (proposed price)</span>
+          <span className="text-muted">Amount</span>
           <span className="font-semibold text-ink">{formatPeso(t.amountCentavos)}</span>
         </div>
         <div className="flex justify-between px-4 py-3 text-sm">
@@ -101,10 +93,7 @@ export default function SandboxCheckout() {
       </Card>
       <div className="mt-6 space-y-2.5">
         <Button full size="lg" loading={busy === "success"} disabled={!!busy} onClick={() => settle("success")}>
-          Simulate successful payment
-        </Button>
-        <Button full variant="secondary" loading={busy === "failure"} disabled={!!busy} onClick={() => settle("failure")}>
-          Simulate failed payment
+          Confirm payment
         </Button>
         <Button full variant="ghost" disabled={!!busy} onClick={() => settle("cancel")}>
           Cancel

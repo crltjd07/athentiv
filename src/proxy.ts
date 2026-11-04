@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isUnsupportedAgent } from "@/shared/deviceAgent";
 
 // Pages reachable without a session.
-const PUBLIC = ["/welcome", "/login", "/register", "/recover", "/nfc", "/unsupported", "/offline", "/session-expired"];
+const PUBLIC = ["/welcome", "/manual", "/login", "/register", "/recover", "/nfc", "/unsupported", "/offline", "/session-expired"];
 
 export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
@@ -25,5 +25,5 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|.*\\.(?:png|svg|jpg|ico|txt)$).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|.*\\.(?:png|svg|jpg|webp|ico|txt)$).*)"],
 };

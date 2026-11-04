@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Check, Crown, FlaskConical, Minus, Nfc } from "lucide-react";
+import { Check, Crown, Minus, Nfc } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/useApi";
 import { useMe } from "@/lib/me";
@@ -106,12 +106,6 @@ export default function PremiumPage() {
         <p className="mt-3 px-1 text-xs text-muted">Your one-time stand trial was activated on {fmtDate(data.trialGrantedAt)}.</p>
       )}
 
-      <div className="mt-4">
-        <Notice tone="warn" icon={<FlaskConical className="size-4" />}>
-          <b>Test mode.</b> No real money is charged. Prices shown are proposed launch prices.
-        </Notice>
-      </div>
-
       <SectionTitle>{data?.premium.active ? "Extend Premium" : "Choose a plan"}</SectionTitle>
       {!data ? (
         <PageSkeleton />
@@ -190,7 +184,6 @@ export default function PremiumPage() {
                   <p className="font-semibold text-ink">{t.planName}</p>
                   <p className="text-xs text-muted">
                     {fmtDate(t.createdAt)}
-                    {t.isTest && " · test payment"}
                   </p>
                 </div>
                 <div className="text-right">

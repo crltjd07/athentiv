@@ -31,7 +31,7 @@ export function BarChart({
             {!dense && d.value > 0 && <span className="mb-0.5 text-center text-[10px] font-semibold text-ink-2 tabular">{d.value}</span>}
             <div
               className="w-full rounded-t-md transition-[height] duration-500"
-              style={{ height: d.value > 0 ? Math.max(3, (d.value / max) * (height - 16)) : 2, background: d.value > 0 ? (highlight === d.key ? "#0F2E8F" : color) : "#E3EAFF" }}
+              style={{ height: d.value > 0 ? Math.max(3, (d.value / max) * (height - 16)) : 2, background: d.value > 0 ? (highlight === d.key ? "var(--chart-highlight)" : color) : "var(--chart-track)" }}
             />
           </div>
         ))}
@@ -81,7 +81,7 @@ export function Donut({ segments, size = 120, stroke = 16, center }: { segments:
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EEF2F8" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} style={{ stroke: "var(--chart-track-soft)" }} />
         {total > 0 &&
           segments.map((s) => {
             const len = (s.value / total) * c;

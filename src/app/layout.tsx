@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/Sheet";
 import { UnsupportedScreen } from "@/components/SystemScreens";
 import { isUnsupportedAgent } from "@/shared/deviceAgent";
+import { THEME_INIT_SCRIPT } from "@/lib/themeScript";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
@@ -39,7 +40,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     );
   }
   return (
-    <html lang="en" className={`${inter.variable} antialiased`}>
+    // The inline script may add the `dark` class before React hydrates, so the DOM wins here.
+    <html lang="en" className={`${inter.variable} antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-dvh font-sans">
         <DeviceGate enabled={gate}>
           <ToastProvider>

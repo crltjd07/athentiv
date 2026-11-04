@@ -103,8 +103,8 @@ export function settleSandbox(userId: number, id: number, outcome: "success" | "
     );
     await notify(userId, {
       kind: "subscription",
-      title: "Premium activated (test mode)",
-      body: `${plan.name} was added to your account. This was a test payment. No real money was charged.`,
+      title: "Premium activated",
+      body: `${plan.name} was added to your account.`,
       link: "/premium",
       dedupe: `txn:${id}`,
     });
@@ -139,7 +139,7 @@ export function grantStandTrialOnce(userId: number): Promise<boolean> {
     await notify(userId, {
       kind: "subscription",
       title: "Your 30-day Premium trial has started",
-      body: "Thanks for docking! Enjoy every Premium feature free for 30 days.",
+      body: "Every Premium feature is available free for the next 30 days.",
       link: "/premium",
       dedupe: "trial-granted",
     });

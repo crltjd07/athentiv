@@ -64,6 +64,7 @@ The phone stand has an **NFC tag**. Tapping the phone on the stand proves the st
 
 ### Feature 1: Profile creation & selection
 - Account registration (non-stand users), username + password sign-in, and sign-out
+- **Non-stand sign-up flow:** create account → save the recovery code (*"Account created"*) → choose a plan on the Premium page → checkout (plan, amount and reference, with **Confirm payment** or **Cancel**) → onboarding. No test-mode notices or simulation buttons are shown along the way. Stand owners keep their own flow: premade account, temporary-password change and recovery code in onboarding
 - **Onboarding wizard:** choose an avatar, pick subjects, and set a daily study goal (stand owners also change their temporary password)
 - **Avatars**
   - Freemium: 🦊 Fox · 🦉 Owl · 🐼 Panda · 🐱 Cat
@@ -74,12 +75,18 @@ The phone stand has an **NFC tag**. Tapping the phone on the stand proves the st
 - Personalised greeting ("Good morning, Alex 🎓")
 - **Security:** change password, generate a new recovery code, see signed-in devices
 - **Password recovery** with a one-time recovery code (no email needed)
+- **Copying the recovery code:** the **Copy code** button on the recovery-code card (shown after creating an account without a stand, during stand-owner onboarding, and when generating a new code in Settings) copies the full code and confirms with *Copied* and a *Recovery code copied* message.
+  - It first uses the browser's Clipboard API. That API exists only on secure pages (HTTPS or `localhost`), so it was missing when a phone opened the app over plain `http://` on the local network, and copying always failed. In that case the button now falls back to the older copy command on a hidden, selected text field.
+  - If the browser blocks copying entirely, the code is selected on screen so the phone's own **Copy** option can be used. A **Save as file** button also appears and downloads `focusdock-recovery-code.txt`, with a message explaining both options.
 
 ### Feature 2: Mood tracker / Check-in *(stand owners only)*
 - Prompted after each **new NFC session**, and can be skipped
 - **Moods:** Great 😄 · Good 🙂 · Okay 😐 · Tired 😴 · Stressed 😣 · Unmotivated 😶
 - **Mindsets:** Ready to study · Need to focus · Feeling distracted · Feeling pressured · Just getting started
-- Optional **intensity** (5 levels) and an optional private **note**
+- Optional **intensity** (5 levels: A little · Somewhat · Moderately · Quite · Very) and an optional private **note**
+  - The intensity buttons size themselves from their labels and then share the remaining width, so every button has the same side padding. Longer labels such as *Somewhat* and *Moderately* are no longer squeezed against their edges.
+  - All five stay on one row from 340 px wide upwards (checked at 360, 390 and 430 px), and they wrap only on narrower screens.
+  - A selected button keeps the same size as the others.
 - Supportive **motivational message**, a study tip, and a **study-readiness** suggestion with a recommended task size
 - **Premium:** comparison with the previous check-in, a 5-week **mood calendar**, mood distribution, average focus minutes per mood, and a list of recent check-ins
 - **Freemium:** can check in, but not see history
@@ -101,11 +108,17 @@ The phone stand has an **NFC tag**. Tapping the phone on the stand proves the st
 
 **Reliability:** the timer is calculated from server timestamps, so it **survives refreshes, closed tabs and locked phones**. A focus that finishes while the app is closed is completed and rolls into the break automatically. A session paused for more than **15 minutes is cancelled automatically**.
 
-**Extras:** keeps the screen awake while docked (Wake Lock), plays a chime and vibrates when a session ends, shows a browser notification if the app is in the background, plays a completion celebration, and offers an auto-start-break setting and a daily session goal.
+**Extras:** keeps the screen awake while docked (Wake Lock), plays a chime and vibrates when a session ends, shows a browser notification if the app is in the background, briefly shows a *Session complete* screen with the minutes recorded, and offers an auto-start-break setting and a daily session goal.
 
-**Study sounds** (generated in the browser, no audio files):
-- Free: Rain, Brown noise, White noise
-- Premium: + Ocean waves, Forest, Fireplace, Fan, Pink noise
+**Study sounds** (generated in the browser, no audio files). Every sound is a steady, softly filtered background noise designed not to pull attention: no melodies, birdsong, crackles or sudden changes in volume.
+- Free: **Rain** (muffled, steady rain with no droplet clicks) · **Brown noise** (deep, smooth) · **Thunderstorm** (heavy, steady rain with thunder rolling far away)
+- Premium: + **Ocean waves** (distant surf with a slow, shallow swell) · **Forest** (leaves in a light breeze, no birdsong) · **Fireplace** (warm, low fire without crackles) · **Fan** (even airflow without electrical hum) · **Riverside** (a stream flowing over stones)
+- **Thunderstorm** and **Riverside** replaced *White noise* and *Pink noise*, keeping the same tiers (Thunderstorm is free, as White noise was; Riverside is Premium, as Pink noise was).
+  - Thunderstorm has no sharp thunder cracks. The thunder is a deep, low rumble that swells and fades slowly and irregularly, never suddenly.
+  - Riverside is a soft water wash with a gentle babble whose tone moves slowly.
+  - Database migration `002_study_sounds_thunderstorm_riverside` updates the allowed sound names. Anyone whose saved sound was White or Pink noise is moved to Rain, and the API now rejects the old names.
+  - On small phones the tile label breaks as *Thunder-storm* so it stays inside its tile.
+- Sounds fade in when started and fade out when paused or switched, and loop seamlessly with no click at the loop point
 - Play/pause and volume, remembered between visits
 
 **Spotify:** save up to 5 playlist or album links, play them in Spotify's official embed player, and open them in the Spotify app.
@@ -164,7 +177,38 @@ Exports are logged, and the PDF report is a branded ATHENTIV FocusDock document.
 - **Study streaks:** current and best streak; a study day counts when you complete a task or record focus time
 - **10 achievements:** First step, Getting things done, Unstoppable, Ahead of schedule, On a roll, Week warrior, Deep diver, Focus regular, Ten-hour club, Self-aware
 - **Notification inbox:** due-soon reminders, overdue alerts, Premium ending or ended, daily recap and achievements, each switchable on or off (including how far ahead reminders arrive)
+- **Notification style:** in-app pop-ups, inbox messages and browser notifications use short, plain text with no emojis and no exclamation marks (for example *"Task completed"*, *"Premium activated"*, *"Focus session complete: Your focus time has been saved."*). Each pop-up keeps its icon, timing and dismissal
+- **Dark mode:** a **Dark mode** switch in **Profile → Settings** changes the whole app (pages, cards, buttons, forms, sheets, pop-ups, charts) between light and dark immediately. The choice is saved on the phone, applies on the next visit without a flash of the light theme, and doesn't change any account data or other settings. Light mode is the default
 - **Installable:** can be added to the home screen (web app manifest)
+
+### Landing page (`/welcome`)
+The first screen signed-out visitors see (`/` redirects here; signed-in users go to Home instead). It is for people who may not have an account or a stand yet, so it shows **only generic product content**: no names, avatars, tasks, progress, statistics, greetings, notifications or session information. A signed-in user who opens `/welcome` directly sees the same public page, and their session is not affected.
+- **Sticky top bar:** the FocusDock logo (returns to the landing page), **Features** (scrolls to the feature cards), **Manual** (opens the user manual) and **Sign in** (`/login`). On phones narrower than 380 px the logo shows without the name so the bar always fits.
+- **Hero panel:** a large rounded panel with a soft brand-blue tint that fades into the card colour (`.hero-panel` in `globals.css`; a darker version in Dark mode). Inside it, centred: a small pill label (*For students · Tasks, focus and calm sounds*), the headline *"Plan your schoolwork. Study with focus."*, one line of description, then **Get started** (opens *Create account*, `/register`) and **User manual** (`/manual`) directly beneath it, plus a line telling stand owners they can tap their stand to sign in. The hero fills the screen below the top bar (`.hero-fill`: the viewport height minus the bar and the safe area) and the panel centres its content vertically, so the value proposition and both buttons are the first thing visible on any screen size, with no fixed top margin. The earlier illustration below the buttons has been removed, and nothing was added in its place.
+- **Features:** a centred section header (a small *Features* pill label, the heading *"Everything for a focused study day"* and one line of text), then four cards with an icon tile: Tasks & deadlines, Focus timer, Study sounds and FocusDock stand. A note says the timer, sounds and check-ins come with the stand.
+- The layout borrows patterns from a modern landing-page reference (hero panel, pill labels above headings, centred section headers, icon cards) but keeps FocusDock's own font, colours and buttons. No new colours, fonts or sections were added.
+- **Footer:** name, a User manual link and © 2026 ATHENTIV.
+- A `?next=` destination is kept when moving on to Sign in or Get started, so users return where they were headed.
+- Uses the existing font (Inter), colours, buttons, card radii and shadows, and follows Light/Dark mode. Checked at 360, 375, 390, 412 and 430 px wide with no sideways scrolling. Like the rest of the app it is phone-only: laptops and tablets see the "designed exclusively for smartphones" screen.
+- NFC sign-in is unchanged: stand tags still open `/nfc/...` directly.
+
+### User manual (`/manual`)
+One manual for everyone, on a public page (no sign-in needed).
+- **Two ways in:** visitors open it from the landing page (top bar, hero button and footer). Signed-in users open it from the **User manual** row in **Profile → Settings**, without going back to the landing page. Both lead to the same page, so there is no second copy to keep in sync. The back arrow goes to `/`, which leads to Home when signed in and to the landing page when not.
+- **Page layout:** a short intro (a *Guide* pill label, *"How to use FocusDock"* and one line of text), then an **In this manual** card: a two-column grid of section links, each with its icon, that jumps to the section.
+- **Sections:** Getting started (with a stand, and without one), Signing in with the stand, Home and Profile, Tasks and deadlines, Focus timer, Study sounds, Mood check-in, Summary and exports, Plans, and Troubleshooting.
+- **Section design, kept uncrowded:** each section is its own card with an icon tile, a title and a one-line summary. The content is split into small labelled groups (for example *Add a task* and *Good to know*), separated by a divider.
+  - Numbered steps sit on a soft background panel, with round brand-blue number circles.
+  - "Good to know" points use small check marks.
+  - Both markers are drawn in CSS (`.manual-steps` and `.manual-tips` in `globals.css`). There are no emoji anywhere.
+  - Line spacing and the gaps between items, groups and sections were increased. The font size was not reduced and no instructions were removed.
+- **Screenshots:** real app screenshots, taken at 390 px wide from a demo account, appear in Home and Profile (Home after a stand tap), Tasks (the Add task form), Focus timer (presets and task picker) and Study sounds (the sounds sheet).
+  - Each comes in a light and a dark version that follows the app's theme, is shown in a rounded frame with a caption, and lazy-loads.
+  - The Home shot starts below the greeting, so no name is shown.
+  - The files are `public/manual/<name>-light.webp` and `-dark.webp`. Retake them when those screens change.
+- **Troubleshooting** is a list of expandable questions (tap to open; the + turns into ×). It covers: stand tap not working, verification ended, session expired, sign-in paused, the smartphones-only screen, no sound, and offline.
+- **Design:** built from the app's own pieces: page header, cards, Inter, the brand colours and Lucide icons. It follows Light/Dark mode.
+- Limits in the text (open tasks, daily sessions) are read from `src/shared/limits.ts`, so they stay correct if the limits change.
 
 ---
 
@@ -197,7 +241,7 @@ Exports are logged, and the PDF report is a branded ATHENTIV FocusDock document.
 
 - Buying while Premium is active **adds the new period after the current expiry date**.
 - When Premium ends, the account drops to Freemium immediately, and **all data is kept**.
-- **Payments run in a clearly labelled test mode:** the checkout simulates success or failure, and no real money is ever charged.
+- **Checkout:** shows the plan, amount and reference with **Confirm payment** and **Cancel**. No payment gateway is connected yet, so confirming activates the plan without charging any money (the transaction is still recorded internally as a sandbox payment). Test-mode notices, "test payment" labels and the *Simulate failed payment* option are no longer shown.
 
 ---
 
@@ -205,13 +249,13 @@ Exports are logged, and the PDF report is a branded ATHENTIV FocusDock document.
 
 | Area | Screens |
 |---|---|
-| Public | Welcome · Sign in · Create account · Reset password · NFC stand landing · Session expired · Offline · Unsupported device · Not found · Error |
+| Public | Landing page · User manual · Sign in · Create account · Reset password · NFC stand landing · Session expired · Offline · Unsupported device · Not found · Error |
 | Main tabs | Home · Tasks · Focus *(stand)* or Calendar *(non-stand)* · Summary · Profile |
 | Tasks | Task list · Add assignment (with voice) · Task details · Edit task · Subjects · Calendar |
 | Focus *(stand)* | Focus Timer setup · Active focus session · Break · Session history · Study sounds & Spotify |
 | Wellbeing *(stand)* | Check-in · Mood history |
-| Account | Onboarding · Profile · Edit profile · Avatar picker · Achievements · Account & security · Notification settings · Notifications inbox · My stand & session |
-| Premium | Plans & comparison · Sandbox checkout · Billing history |
+| Account | Onboarding · Profile (with the Dark mode switch) · Edit profile · Avatar picker · Achievements · Account & security · Notification settings · Notifications inbox · My stand & session |
+| Premium | Plans & comparison · Checkout · Billing history |
 | Summary | Summary dashboard · Export data |
 
 Every screen has loading, empty and error states. Locked features show a lock and an upgrade prompt instead of acting as if they're available.
@@ -259,13 +303,20 @@ pnpm db:migrate                             # apply database migrations
 
 - An automated end-to-end suite covers the 18 required scenarios: **165 checks, all passing**. It covers registration, login, NFC sign-in, the one-time trial, the one-device rule, task limits, Pomodoro limits and timer recovery, subscription expiry, stand-only restrictions, mood persistence, summary accuracy, exports, device blocking and data isolation.
 - The live site was checked: phones load it, desktops are blocked, and stand links resolve against the live database.
+- Dark and light mode, the sign-up → plan → checkout flow, the *Task completed* pop-up and the Study sounds sheet were checked in an emulated phone browser (390 × 844).
+- **Recovery code copy** was checked in an emulated phone browser:
+  - On an insecure address (`http://<LAN IP>`): the clipboard held exactly the code.
+  - On a secure address: the code was copied through the Clipboard API.
+  - With copying blocked: the code was selected and *Save as file* appeared.
+- **Thunderstorm and Riverside** were checked to appear, play (the audio clock was running), save as the user's choice and keep pause and volume working. The API accepts the new names and rejects the old ones.
+- The **check-in intensity buttons** were checked to have equal side padding at 360, 390 and 430 px.
 - Details: `docs/TESTING.md`.
 
 ---
 
 ## 10. Current limitations
 
-- **Payments:** test mode only; no real gateway (for example PayMongo) is connected yet.
+- **Payments:** no real gateway (for example PayMongo) is connected yet. Checkout activates plans without charging, even though test-mode labels are no longer shown.
 - **Push notifications:** reminders appear in the in-app inbox and as browser notifications while the app is open, but not when it's fully closed.
 - **Spotify:** saved links plus the official embed player, not full in-app playback control (Spotify's API restricts that).
 - **Web NFC in-app scan:** Android Chrome only. iPhones use the tag's link instead, which works.

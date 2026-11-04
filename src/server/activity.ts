@@ -132,7 +132,7 @@ export async function checkAchievements(userId: number, tz: string, standOwner: 
     if (!earned[a.key]) continue;
     const r = await run("INSERT OR IGNORE INTO user_achievements (user_id, key, unlocked_at) VALUES (?, ?, ?)", userId, a.key, now);
     if (r.changes) {
-      await notify(userId, { kind: "achievement", title: `Achievement unlocked: ${a.title}`, body: `You earned the "${a.title}" badge. Nicely done!`, link: "/profile/achievements", dedupe: `ach:${a.key}` });
+      await notify(userId, { kind: "achievement", title: `Achievement unlocked: ${a.title}`, body: `You earned the "${a.title}" badge.`, link: "/profile/achievements", dedupe: `ach:${a.key}` });
     }
   }
 }
@@ -190,7 +190,7 @@ export async function sweepNotifications(auth: Auth, force = false) {
       const parts = [];
       if (y.focus_minutes > 0) parts.push(`focused for ${y.focus_minutes} min`);
       if (y.tasks_completed > 0) parts.push(`completed ${y.tasks_completed} task${y.tasks_completed === 1 ? "" : "s"}`);
-      await notify(user.id, { kind: "summary", title: "Yesterday's recap", body: `You ${parts.join(" and ")}. Keep it going today!`, link: "/summary", dedupe: `daily:${yesterday}` });
+      await notify(user.id, { kind: "summary", title: "Yesterday's recap", body: `You ${parts.join(" and ")}.`, link: "/summary", dedupe: `daily:${yesterday}` });
     }
   }
 }

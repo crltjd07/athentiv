@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, Lightbulb, Music, Pause, Play, Plus, SkipForward, Square, X } from "lucide-react";
+import { ChevronDown, CircleCheck, Lightbulb, Music, Pause, Play, Plus, SkipForward, Square, X } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api";
 import { useMe } from "@/lib/me";
 import { ambient } from "@/lib/ambient";
@@ -54,9 +54,9 @@ export default function FocusSession() {
       if (p && next.live?.id !== p.id && !userEnded.current) {
         if (p.kind === "focus") {
           alert("focus-done");
-          systemNotify("Focus session complete", next.live?.kind === "break" ? "Time for a break." : "Great work!");
+          systemNotify("Focus session complete", next.live?.kind === "break" ? "Time for a break." : "Your focus time has been saved.");
           setCelebrate({
-            title: endedEarly.current ? "Session saved" : "Session complete! 🎉",
+            title: endedEarly.current ? "Session saved" : "Session complete",
             sub: endedEarly.current ? "The time you focused has been recorded." : `+${Math.round(p.planned / 60)} minutes of focus`,
           });
           setTimeout(() => setCelebrate(null), 3200);
@@ -168,7 +168,7 @@ export default function FocusSession() {
         {last?.breakPending && !s.config.autoStartBreak ? (
           <>
             <SleepyCat className="h-36 w-auto" />
-            <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-ink">Focus complete 🎉</h1>
+            <h1 className="mt-6 text-2xl font-extrabold tracking-tight text-ink">Focus complete</h1>
             <p className="mt-2 text-sm text-muted">You focused for {Math.round((last.focusedSeconds ?? 0) / 60)} minutes. Take a {Math.round(breakSecs / 60)}-minute break?</p>
             <div className="mt-8 w-full max-w-xs space-y-2.5">
               <Button full size="lg" loading={busy} onClick={() => act("start_break", last.id)}>
@@ -228,7 +228,7 @@ export default function FocusSession() {
         )}
 
         <div className="mt-6 flex justify-center">
-          <ProgressRing value={progress} size={264} stroke={12} color={isFocus ? "#FFFFFF" : "#2F5BEA"} track={isFocus ? "rgba(255,255,255,0.16)" : "#DCE6FF"}>
+          <ProgressRing value={progress} size={264} stroke={12} color={isFocus ? "#FFFFFF" : "#2F5BEA"} track={isFocus ? "rgba(255,255,255,0.16)" : "var(--chart-track)"}>
             <div className="text-center">
               <div className={cx("text-[64px] font-extrabold leading-none tracking-tight tabular", paused && "opacity-60")} aria-live="off">
                 {fmtClock(remaining)}
@@ -261,7 +261,7 @@ export default function FocusSession() {
                 aria-label={paused ? "Resume" : "Pause"}
                 disabled={busy}
                 onClick={() => act(paused ? "resume" : "pause")}
-                className="grid size-14 place-items-center rounded-full bg-white text-brand-800 active:scale-95"
+                className="grid size-14 place-items-center rounded-full bg-[#fff] text-[#0f2e8f] active:scale-95"
               >
                 {paused ? <Play className="size-6 fill-current" /> : <Pause className="size-6 fill-current" />}
               </button>
@@ -327,7 +327,7 @@ export default function FocusSession() {
 function Celebration({ title, sub }: { title: string; sub: string }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center bg-brand-900/70 text-center text-white backdrop-blur-sm animate-fade-up">
-      <div className="text-6xl animate-pop">🏆</div>
+      <CircleCheck className="size-16 animate-pop" strokeWidth={1.75} aria-hidden />
       <p className="mt-4 text-2xl font-extrabold">{title}</p>
       <p className="mt-1 text-brand-100">{sub}</p>
     </div>

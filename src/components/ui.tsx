@@ -204,7 +204,7 @@ export function Toggle({ checked, onChange, label, description, disabled }: { ch
         {/* Anchored to the left edge: 2px inset when off, 2px inset from the right when on (48 - 24 - 2 - 2 = 20px travel). */}
         <span
           aria-hidden
-          className={cx("pointer-events-none absolute top-0.5 left-0.5 block size-6 rounded-full bg-white shadow transition-transform duration-200", checked ? "translate-x-5" : "translate-x-0")}
+          className={cx("pointer-events-none absolute top-0.5 left-0.5 block size-6 rounded-full bg-[#fff] shadow transition-transform duration-200", checked ? "translate-x-5" : "translate-x-0")}
         />
       </button>
     </label>

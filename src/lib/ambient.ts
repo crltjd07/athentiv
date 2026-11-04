@@ -71,25 +71,46 @@ class AmbientEngine {
     return { ctx: this.ctx, out: this.master! };
   }
 
-  private noise(ctx: AudioContext, kind: "white" | "pink" | "brown", seconds = 6) {
-    const len = ctx.sampleRate * seconds;
-    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch);
-      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, last = 0;
-      for (let i = 0; i < len; i++) {
-        const w = Math.random() * 2 - 1;
-        if (kind === "white") d[i] = w * 0.5;
-        else if (kind === "pink") {
-          b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852;
-          b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898;
-          d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
-          b6 = w * 0.115926;
-        } else {
-          last = (last + 0.02 * w) / 1.02;
-          d[i] = last * 3.5;
+  /** Noise buffers are built once per colour and reused, so switching sounds is instant. */
+  private buffers = new Map<string, AudioBuffer>();
+
+  /**
+   * A looping stereo noise source. The buffer is long (12 s) so it doesn't sound repetitive, and
+   * its end is cross-faded into its start so the loop point has no click.
+   */
+  private noise(ctx: AudioContext, kind: "white" | "pink" | "brown") {
+    let buf = this.buffers.get(kind);
+    if (!buf) {
+      const rate = ctx.sampleRate;
+      const len = rate * 12;
+      const fade = Math.floor(rate * 0.75);
+      buf = ctx.createBuffer(2, len, rate);
+      const tmp = new Float32Array(len + fade);
+      for (let ch = 0; ch < 2; ch++) {
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, last = 0;
+        for (let i = 0; i < tmp.length; i++) {
+          const w = Math.random() * 2 - 1;
+          if (kind === "white") tmp[i] = w * 0.5;
+          else if (kind === "pink") {
+            b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852;
+            b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898;
+            tmp[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+            b6 = w * 0.115926;
+          } else {
+            last = (last + 0.02 * w) / 1.02;
+            tmp[i] = last * 3.5;
+          }
+        }
+        const d = buf.getChannelData(ch);
+        d.set(tmp.subarray(0, len));
+        // Equal-power blend of the overflow tail into the head: the sample before the loop point
+        // flows straight into the one after it.
+        for (let i = 0; i < fade; i++) {
+          const x = i / fade;
+          d[i] = tmp[i] * Math.sqrt(x) + tmp[len + i] * Math.sqrt(1 - x);
         }
       }
+      this.buffers.set(kind, buf);
     }
     const src = ctx.createBufferSource();
     src.buffer = buf;
@@ -105,126 +126,123 @@ class AmbientEngine {
     return f;
   }
 
-  /** Random short events (droplets, crackles, chirps), rescheduled until stopped. */
-  private every(minMs: number, maxMs: number, fn: () => void) {
-    let alive = true;
-    let t: ReturnType<typeof setTimeout>;
-    const loop = () => {
-      if (!alive) return;
-      fn();
-      t = setTimeout(loop, minMs + Math.random() * (maxMs - minMs));
-    };
-    t = setTimeout(loop, minMs);
-    this.stopFns.push(() => {
-      alive = false;
-      clearTimeout(t);
-    });
-  }
-
+  /**
+   * Builds one study sound. Every sound is a steady, filtered noise bed: no melodies, no birdsong,
+   * no sharp clicks, and any movement is a slow, shallow drift. Each sound fades in over two
+   * seconds and fades out when stopped or switched, so nothing starts or ends abruptly.
+   */
   private build(key: SoundKey) {
     const { ctx, out } = this.ensure();
+    const now = ctx.currentTime;
+    const bus = ctx.createGain();
+    bus.gain.setValueAtTime(0, now);
+    bus.gain.setTargetAtTime(1, now, 0.6);
+    bus.connect(out);
+
+    const sources: AudioScheduledSourceNode[] = [];
     const chain = (...nodes: AudioNode[]) => {
       for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]);
-      nodes[nodes.length - 1].connect(out);
+      nodes[nodes.length - 1].connect(bus);
     };
     const start = (src: AudioScheduledSourceNode) => {
       src.start();
-      this.stopFns.push(() => {
-        try {
-          src.stop();
-        } catch {
-          /* already stopped */
-        }
-        src.disconnect();
-      });
+      sources.push(src);
     };
     const gain = (v: number) => {
       const g = ctx.createGain();
       g.gain.value = v;
       return g;
     };
-    const burst = (dur: number, freq: number, type: BiquadFilterType, level: number) => {
-      const src = this.noise(ctx, "white", 0.2);
-      src.loop = false;
-      const g = gain(0);
-      const now = ctx.currentTime;
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(level, now + 0.003);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-      chain(src, this.filter(ctx, type, freq, 1.2), g);
-      src.start(now);
-      src.stop(now + dur + 0.05);
+    /** A very slow, shallow wobble on an AudioParam (period in seconds, depth as an absolute amount). */
+    const drift = (param: AudioParam, period: number, depth: number) => {
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 1 / period;
+      const amt = gain(depth);
+      lfo.connect(amt).connect(param);
+      start(lfo);
+    };
+    const bed = (kind: "white" | "pink" | "brown", level: number, ...filters: BiquadFilterNode[]) => {
+      const src = this.noise(ctx, kind);
+      const g = gain(level);
+      chain(src, ...filters, g);
+      start(src);
+      return g;
     };
 
     switch (key) {
-      case "white":
-      case "pink":
-      case "brown": {
-        const src = this.noise(ctx, key);
-        chain(src, gain(key === "white" ? 0.35 : 0.7));
-        start(src);
+      case "thunderstorm": {
+        // Heavy, steady rain with thunder rolling far away. There are no sharp thunder cracks:
+        // the thunder is a deep low rumble whose level swells and fades slowly. Two slow drifts
+        // with different periods (17 s and 29 s) make the swells irregular, like a real storm,
+        // without ever going fully silent or suddenly loud.
+        bed("pink", 0.55, this.filter(ctx, "highpass", 250), this.filter(ctx, "lowpass", 3800));
+        bed("brown", 0.3, this.filter(ctx, "highpass", 40), this.filter(ctx, "lowpass", 600));
+        const rumble = bed("brown", 0.42, this.filter(ctx, "highpass", 25), this.filter(ctx, "lowpass", 140));
+        drift(rumble.gain, 17, 0.18);
+        drift(rumble.gain, 29, 0.14);
         break;
       }
-      case "rain": {
-        const src = this.noise(ctx, "pink");
-        chain(src, this.filter(ctx, "highpass", 500), this.filter(ctx, "lowpass", 7000), gain(0.8));
-        start(src);
-        this.every(25, 90, () => burst(0.04 + Math.random() * 0.05, 2500 + Math.random() * 4000, "bandpass", 0.08 + Math.random() * 0.12));
+      case "riverside": {
+        // A stream flowing over stones: a soft, wide water wash with a gentle babble on top.
+        // The babble's tone moves slowly (7 s) and only slightly, so it stays in the background.
+        bed("pink", 0.4, this.filter(ctx, "highpass", 200), this.filter(ctx, "lowpass", 4500));
+        const babble = this.filter(ctx, "bandpass", 1600, 0.9);
+        const flow = bed("pink", 0.3, babble);
+        drift(babble.frequency, 7, 350);
+        drift(flow.gain, 11, 0.06);
+        bed("brown", 0.3, this.filter(ctx, "highpass", 40), this.filter(ctx, "lowpass", 380));
         break;
       }
+      case "brown":
+        // The highpass removes sub-bass rumble you feel more than hear.
+        bed("brown", 0.7, this.filter(ctx, "highpass", 30), this.filter(ctx, "lowpass", 900));
+        break;
+      case "rain":
+        // Steady rain heard through a window: a muffled pink-noise patter over a soft low layer.
+        bed("pink", 0.6, this.filter(ctx, "highpass", 350), this.filter(ctx, "lowpass", 3200));
+        bed("brown", 0.35, this.filter(ctx, "highpass", 40), this.filter(ctx, "lowpass", 500));
+        break;
       case "ocean": {
-        const src = this.noise(ctx, "brown");
-        const swell = gain(0.5);
-        const lfo = ctx.createOscillator();
-        const depth = gain(0.45);
-        lfo.frequency.value = 0.09;
-        lfo.connect(depth).connect(swell.gain);
-        chain(src, this.filter(ctx, "lowpass", 900), swell);
-        start(src);
-        start(lfo);
+        // Distant surf: a gentle 14-second swell that only moves the level by about ±15%.
+        const swell = bed("brown", 0.55, this.filter(ctx, "highpass", 40), this.filter(ctx, "lowpass", 700));
+        drift(swell.gain, 14, 0.08);
         break;
       }
       case "forest": {
-        const src = this.noise(ctx, "pink");
-        chain(src, this.filter(ctx, "bandpass", 1800, 0.4), gain(0.25));
-        start(src);
-        this.every(1800, 5200, () => {
-          const now = ctx.currentTime;
-          const base = 2200 + Math.random() * 2000;
-          for (let i = 0; i < 2 + Math.floor(Math.random() * 3); i++) {
-            const o = ctx.createOscillator();
-            const g = gain(0);
-            const t0 = now + i * 0.13;
-            o.frequency.setValueAtTime(base, t0);
-            o.frequency.exponentialRampToValueAtTime(base * 1.35, t0 + 0.08);
-            g.gain.setValueAtTime(0, t0);
-            g.gain.linearRampToValueAtTime(0.05, t0 + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
-            chain(o, g);
-            o.start(t0);
-            o.stop(t0 + 0.12);
-          }
-        });
+        // Leaves in a light breeze, without birdsong. The tone drifts slowly and slightly.
+        const tone = this.filter(ctx, "bandpass", 900, 0.5);
+        bed("pink", 0.45, this.filter(ctx, "lowpass", 2600), tone);
+        drift(tone.frequency, 20, 120);
+        bed("brown", 0.25, this.filter(ctx, "highpass", 40), this.filter(ctx, "lowpass", 400));
         break;
       }
-      case "fireplace": {
-        const src = this.noise(ctx, "brown");
-        chain(src, this.filter(ctx, "lowpass", 600), gain(0.75));
-        start(src);
-        this.every(60, 420, () => burst(0.015 + Math.random() * 0.03, 1800 + Math.random() * 3000, "highpass", 0.15 + Math.random() * 0.3));
+      case "fireplace":
+        // A warm, low fire bed. Crackles are removed because their sudden pops break focus.
+        bed("brown", 0.6, this.filter(ctx, "highpass", 40), this.filter(ctx, "lowpass", 550));
+        bed("pink", 0.08, this.filter(ctx, "bandpass", 1200, 0.6));
         break;
-      }
-      case "fan": {
-        const src = this.noise(ctx, "brown");
-        chain(src, this.filter(ctx, "lowpass", 380), gain(0.9));
-        start(src);
-        const hum = ctx.createOscillator();
-        hum.frequency.value = 118;
-        chain(hum, gain(0.015));
-        start(hum);
+      case "fan":
+        // Soft, even airflow without the electrical hum.
+        bed("brown", 0.7, this.filter(ctx, "highpass", 50), this.filter(ctx, "lowpass", 450));
+        bed("pink", 0.12, this.filter(ctx, "bandpass", 700, 0.7));
         break;
-      }
     }
+
+    this.stopFns.push(() => {
+      // Fade out quickly, then release the nodes.
+      const t = ctx.currentTime;
+      bus.gain.cancelScheduledValues(t);
+      bus.gain.setValueAtTime(bus.gain.value, t);
+      bus.gain.setTargetAtTime(0, t, 0.12);
+      for (const src of sources) {
+        try {
+          src.stop(t + 0.6);
+        } catch {
+          /* already stopped */
+        }
+      }
+      setTimeout(() => bus.disconnect(), 800);
+    });
   }
 
   play(key: SoundKey = this.sound) {
