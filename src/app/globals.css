@@ -106,17 +106,80 @@ body {
 
 /* Landing hero: fills the screen below the sticky nav (56px bar + 1px border + safe-area top). */
 .hero-fill { min-height: calc(100svh - 57px - max(env(safe-area-inset-top), 12px)); }
-/* Landing hero panel: a soft brand tint that fades into the card colour. */
+/* Landing hero panel (src/app/welcome). Layers, back to front:
+   panel background (brand tint) → ::after gradient mesh → focus rings and curves (SVG, z -2)
+   → ::before fine dot texture → content. Colours come from the --hero-* tokens below. */
 .hero-panel {
+  position: relative; isolation: isolate; overflow: hidden;
+  --hero-ring: rgb(142 169 251 / 0.5);     /* brand-300 */
+  --hero-accent: var(--color-brand-500);
+  --hero-glow: rgb(47 91 234 / 0.35);
+  --hero-core: rgb(255 255 255 / 0.85);    /* soft light behind the heading */
   background:
     radial-gradient(120% 70% at 50% 0%, var(--color-brand-100) 0%, transparent 70%),
     linear-gradient(180deg, var(--color-brand-50) 0%, var(--color-card) 100%);
+  /* Edge lighting: a fine highlight along the top edge and a faint inner rim. */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    inset 0 0 0 1px rgb(255 255 255 / 0.35),
+    var(--shadow-card);
 }
 .dark .hero-panel {
+  --hero-ring: rgb(142 169 251 / 0.22);
+  --hero-accent: #8ea9fb;                  /* brand-300 reads better on navy */
+  --hero-glow: rgb(91 127 242 / 0.45);
+  --hero-core: rgb(91 127 242 / 0.16);
   background:
     radial-gradient(120% 70% at 50% 0%, rgb(91 127 242 / 0.22) 0%, transparent 70%),
     linear-gradient(180deg, rgb(91 127 242 / 0.08) 0%, var(--color-card) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(142 169 251 / 0.22),
+    inset 0 0 0 1px rgb(142 169 251 / 0.05),
+    var(--shadow-card);
 }
+/* Gradient mesh: overlapping soft blue and navy pools of light. */
+.hero-panel::after {
+  content: "";
+  position: absolute; inset: 0; z-index: -3; pointer-events: none;
+  background:
+    radial-gradient(55% 35% at 0% 0%, rgb(91 127 242 / 0.16), transparent 70%),
+    radial-gradient(60% 38% at 100% 100%, rgb(91 127 242 / 0.16), transparent 70%),
+    radial-gradient(50% 30% at 100% 22%, rgb(188 205 255 / 0.35), transparent 70%),
+    radial-gradient(55% 32% at 0% 78%, rgb(220 230 255 / 0.5), transparent 70%);
+}
+.dark .hero-panel::after {
+  background:
+    radial-gradient(55% 35% at 0% 0%, rgb(47 91 234 / 0.2), transparent 70%),
+    radial-gradient(60% 38% at 100% 100%, rgb(47 91 234 / 0.18), transparent 70%),
+    radial-gradient(50% 30% at 100% 22%, rgb(15 46 143 / 0.35), transparent 70%),
+    radial-gradient(55% 32% at 0% 78%, rgb(7 26 82 / 0.5), transparent 70%);
+}
+/* Fine dot texture: even across the panel, thinning out behind the text and at the edges. */
+.hero-panel::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: radial-gradient(rgb(21 57 176 / 0.16) 0.9px, transparent 1.3px);
+  background-size: 16px 16px;
+  -webkit-mask-image: radial-gradient(75% 55% at 50% 45%, transparent 30%, #000 70%, rgb(0 0 0 / 0.5) 100%);
+  mask-image: radial-gradient(75% 55% at 50% 45%, transparent 30%, #000 70%, rgb(0 0 0 / 0.5) 100%);
+}
+.dark .hero-panel::before { background-image: radial-gradient(rgb(157 181 255 / 0.16) 0.9px, transparent 1.3px); }
+
+/* Landing section divider: hairlines that fade in towards three brand dots. */
+.landing-divider { display: flex; align-items: center; gap: 0.375rem; }
+.landing-divider::before,
+.landing-divider::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--color-line)); }
+.landing-divider::after { background: linear-gradient(270deg, transparent, var(--color-line)); }
+
+/* Landing feature cards: a soft brand glow in the top corner, behind the icon. */
+.feature-card { position: relative; isolation: isolate; overflow: hidden; }
+.feature-card::before {
+  content: "";
+  position: absolute; z-index: -1; top: -48px; left: -48px; width: 160px; height: 160px; pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, var(--color-brand-50), transparent);
+}
+.dark .feature-card::before { background: radial-gradient(closest-side, rgb(91 127 242 / 0.14), transparent); }
 
 /* Chart tracks and highlights (used through inline styles, so they follow the theme). */
 :root {
