@@ -308,7 +308,7 @@ function GroupBlock({ label, steps, tips }: Group) {
 export default function Manual() {
   return (
     <main className="mx-auto max-w-[640px] px-4 pb-safe">
-      <PageHeader title="User manual" back="/" />
+      <PageHeader title="User manual" back={{ fallback: "/" }} />
 
       <div className="flex flex-col items-center px-2 pt-3 pb-6 text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">

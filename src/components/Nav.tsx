@@ -37,8 +37,14 @@ export function BottomNav({ standOwner }: { standOwner: boolean }) {
   );
 }
 
-export function PageHeader({ title, back, action, subtitle }: { title: ReactNode; back?: string | true; action?: ReactNode; subtitle?: ReactNode }) {
+// back: a path links there; `true` goes back in history; `{ fallback }` goes back in history,
+// or to `fallback` when the page was opened directly (no earlier page in this tab).
+export function PageHeader({ title, back, action, subtitle }: { title: ReactNode; back?: string | true | { fallback: string }; action?: ReactNode; subtitle?: ReactNode }) {
   const router = useRouter();
+  const goBack = () => {
+    if (typeof back === "object" && window.history.length <= 1) router.push(back.fallback);
+    else router.back();
+  };
   return (
     <header className="sticky top-0 z-20 -mx-4 mb-2 bg-canvas px-2 pt-safe">
       <div className="flex h-12 items-center">
@@ -49,7 +55,7 @@ export function PageHeader({ title, back, action, subtitle }: { title: ReactNode
                 <ChevronLeft className="size-6" />
               </Link>
             ) : (
-              <button aria-label="Back" onClick={() => router.back()} className="grid size-11 place-items-center rounded-full text-ink active:bg-black/5">
+              <button aria-label="Back" onClick={goBack} className="grid size-11 place-items-center rounded-full text-ink active:bg-black/5">
                 <ChevronLeft className="size-6" />
               </button>
             ))}
